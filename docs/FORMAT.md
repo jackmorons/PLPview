@@ -1,0 +1,110 @@
+# Import format, version 1
+
+This is the contract for program files. **`fixtures/PL28.xlsx` is the reference implementation.**
+The parser (`src/parser.js`) and this document must always agree; if you change one, change the other.
+
+**The file is either accepted completely or rejected.** On rejection the app lists every problem with
+its sheet, cell and reason, e.g. `overall!D7: formula non riconosciuta`. A half-read program is never shown.
+
+General rules for every cell: spaces at the ends are ignored, non-breaking spaces count as normal spaces.
+
+## Sheets
+
+| Sheet | Required | Content |
+|---|---|---|
+| `Massimali` | yes | Lifts and their maxes |
+| `overall` | yes | Main-lift plan |
+| `accessori` | yes | Accessory exercises |
+| `note` | no | Free text, column A, one paragraph per row (empty rows are skipped) |
+| `meta` | no | `A1 = formatVersion`, `B1 = <n>`. Missing = format 1. A version newer than the app knows is rejected |
+| anything else | ignored | e.g. `volume`, `training log` |
+
+Names must match exactly, capitals included (`massimali` is an error).
+
+## `Massimali`
+
+- Column A from row 1 down. A **lift row** has a name in A and a number > 0 in B.
+- A name in A with nothing in B is a title row and is ignored.
+- A name in A with something other than a number > 0 in B is an **error**.
+- Reading stops at the row whose A is `Totale`, or after two empty rows in a row.
+- Lift names must be unique (ignoring capitals).
+- Formulas in `overall` point at a lift by its **row**: `Massimali!$B$3`. In PL28: 3 = Squat, 4 = Panca, 5 = Stacco.
+- These maxes are the **defaults**. Maxes edited in the app override them; "Ripristina dal file" goes back to these.
+
+## `overall`
+
+**Row 1**
+- `A1 = week`, `B1 = fase`.
+- From `C1` on, one column per **slot**: `Name (X)`, where X is the day letter (one capital letter).
+  Example: `Squat stress (A)`. The columns end at the first empty header.
+
+**Rows 2 onwards**, two kinds:
+
+| Row | A | B | C onwards |
+|---|---|---|---|
+| **Block row** | empty | block name, e.g. `Blocco 1 – Accumulo` | the block's variant for each slot, e.g. `discesa 4''` |
+| **Week row** | week number (integer) | phase: empty, `transizione`, `entrata` or `TEST` | the prescriptions |
+
+- Row 2 must be a block row.
+- Weeks are numbered 1, 2, 3… across the whole sheet, with no gaps. `1` and `1.0` are fine, `1.5` is an error.
+- Another phase text is a **warning**, not an error: it is shown as written.
+- Blocks can have different lengths. Nothing is fixed to 20 weeks, 4 blocks or 5 days.
+- The first completely empty row ends the sheet; anything below is ignored.
+- Merged cells are an error.
+
+**Prescription cells** are one of:
+
+1. **Empty**: that slot is not trained that week, and it is hidden.
+2. **Plain text**: shown exactly as written (`4@7 + 90% 3x4`, `—`, `TEST`). It may contain load placeholders, see below.
+3. **A formula**, which must follow this grammar exactly:
+
+   ```
+   formula  := term ( "&" term )*
+   term     := string | load
+   string   := '"' ( any character, "" for a quote )* '"'
+   load     := MROUND(Massimali!$B$<row> * <number> , <number>)
+   ```
+
+   Examples:
+   ```
+   ="4x5 + ist. "&MROUND(Massimali!$B$3*0.57,2.5)&"kg"
+   =MROUND(Massimali!$B$3*0.805,2.5)&"kg 30-35RT"
+   ```
+   - Spaces are allowed, and `$B$3`, `B3`, `$B3`, `B$3` are all accepted. Nothing else is.
+   - `<row>` must be a lift row in `Massimali`.
+   - The app stores the formula as a template and computes the kg from the **current** maxes:
+     `MROUND(x, step) = round(x / step) × step`.
+   - A formula outside the grammar is an **error**. The app never falls back to the value Excel cached,
+     because that value would ignore the maxes you edit in the app.
+
+### Load placeholders in plain text
+
+For writing programs without formulas: `{<lift name> <fraction>}` inside plain text is a load, rounded to 2.5 kg.
+
+```
+4x5 + ist. {Squat .57}kg      → 4x5 + ist. 110kg   (with squat 192.5)
+{Stacco 0,795}kg 4x4          → 175kg 4x4          (comma or point both fine)
+```
+
+- The name is the lift name as written in `Massimali` (capitals don't matter).
+- A name that isn't in `Massimali` is an **error**.
+- Braces without a number (`{nota}`) are left as text.
+
+## `accessori`
+
+**Row 1**
+- The first six headers, exactly: `Giorno | Esercizio | Istruzioni | Gruppo | Rep | Intensità`.
+- Then one column per block whose header starts with `Serie B` (e.g. `Serie B1 (sett 1-5)`), in block order.
+  Their number must equal the number of block rows in `overall`.
+
+**Rows 2 onwards**
+- The data ends at the first row with an empty `Giorno`; anything below is ignored (PL28 has a footnote there).
+- `Giorno`: one capital letter. The program's days are the letters from the `overall` headers plus these
+  (that is how PL28 has a day E with no main lifts).
+- Each `Serie B…` cell: an integer ≥ 0. 0 = not done in that block. Empty is an error.
+- `Intensità = vedi overall` makes a **volume-only** row: it counts for the volume view but isn't listed
+  with the accessories (PL28: weighted pull-ups, already in `overall`).
+- Merged cells are an error.
+
+**Light weeks.** In weeks whose phase is `transizione` or `TEST`, each accessory shows one set less
+(`sets − 1`), with a banner saying to keep RIR +1. An exercise at 0 sets is hidden.

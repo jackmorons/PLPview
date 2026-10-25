@@ -1,0 +1,7 @@
+/* Global styles. Milestone 1 placeholder: the prototype's token block and layout arrive with the P0 UI. */
+:root { --bg:#EEF0EE; --ink:#15191C; --muted:#5B656B; }
+@media (prefers-color-scheme: dark) { :root { --bg:#101416; --ink:#E8ECEC; --muted:#98A3A9; } }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, -apple-system, sans-serif; }
+.hello { padding: max(48px, env(safe-area-inset-top)) 16px 16px; }
+.hello h1 { font-size:48px; margin:0; }
+.muted { color:var(--muted); }

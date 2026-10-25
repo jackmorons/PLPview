@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PL28</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a gym-floor clipboard — selectors on top, the day's session as one sheet below; day colors follow IPF plate colors */
+:root{
+  --bg:#EEF0EE; --sheet:#FFFFFF; --ink:#15191C; --muted:#5B656B; --line:#D5DAD8; --soft:#E4E8E6;
+  --accent:#1E4FB8; --accent-ink:#FFFFFF;
+  --p25:#D7262E; --p20:#1E4FB8; --p15:#E8B90C; --p10:#1F8A4C; --p5:#F7F7F5; --p25k:#20262A; --p125:#A9B1B6;
+  --dA:var(--p25); --dB:var(--p20); --dC:var(--p15); --dD:var(--p10); --dE:#7C868C;
+  --light-bg:#F6F1DF; --light-ink:#6B5410;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101416; --sheet:#181D20; --ink:#E8ECEC; --muted:#98A3A9; --line:#2C3438; --soft:#222A2E;
+  --accent:#7FA2F2; --accent-ink:#0D1420; --dE:#9AA4AA; --p25k:#0A0C0D;
+  --light-bg:#2B2614; --light-ink:#E5CB72; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101416; --sheet:#181D20; --ink:#E8ECEC; --muted:#98A3A9; --line:#2C3438; --soft:#222A2E;
+  --accent:#7FA2F2; --accent-ink:#0D1420; --dE:#9AA4AA; --p25k:#0A0C0D;
+  --light-bg:#2B2614; --light-ink:#E5CB72; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:.01em}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px}
+.brand h1{font-size:44px;line-height:.9;font-weight:800}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.maxes{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.max{display:grid;gap:2px}
+.max label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.max input{width:84px;font:600 16px var(--f-mono);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--sheet);color:var(--ink);font-variant-numeric:tabular-nums}
+.max input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.total{font:600 13px var(--f-mono);color:var(--muted);padding-bottom:9px}
+.total b{color:var(--ink);font-size:16px}
+
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600}
+.weeks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.blk{display:grid;gap:6px;min-width:0}
+.blk .label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk .row{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+button{font:inherit;cursor:pointer;color:inherit}
+.wk{font:600 15px var(--f-mono);padding:8px 0;border:1px solid var(--line);background:var(--sheet);border-radius:6px;font-variant-numeric:tabular-nums}
+.wk.light{background:var(--light-bg);color:var(--light-ink);border-style:dashed}
+.wk[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);border-style:solid}
+.wk:hover{border-color:var(--accent)}
+.days{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.day{display:grid;gap:2px;text-align:left;padding:10px 12px 10px 16px;border:1px solid var(--line);border-radius:8px;background:var(--sheet);position:relative;overflow:hidden;min-width:0}
+.day::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--dc)}
+.day b{font:800 26px/1 var(--f-display)}
+.day span{font-size:12px;color:var(--muted);line-height:1.3}
+.day[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.sheet-head{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)}
+.sheet-head h2{font-size:30px;line-height:1;font-weight:700}
+.sheet-head h2 i{font-style:normal;color:var(--dc)}
+.meta{display:flex;gap:6px;flex-wrap:wrap}
+.pill{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--soft);color:var(--muted);font-weight:500}
+.pill.warn{background:var(--light-bg);color:var(--light-ink)}
+.nav{display:flex;gap:6px}
+.nav button{border:1px solid var(--line);background:var(--sheet);border-radius:6px;padding:6px 10px;font-size:13px}
+.nav button:disabled{opacity:.4;cursor:default}
+.banner{padding:10px 18px;font-size:13px;background:var(--light-bg);color:var(--light-ink);border-bottom:1px solid var(--line)}
+.sec{padding:14px 18px 6px}
+.sec h3{font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+
+.lift{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:6px 18px;align-items:center;padding:14px 18px;border-top:1px solid var(--line)}
+.lift:first-of-type{border-top:0}
+.lift .nm{font:700 22px/1.05 var(--f-display);text-transform:uppercase}
+.lift .var{font-size:12px;color:var(--muted);margin-top:2px}
+.rx{font:600 19px/1.35 var(--f-mono);font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere}
+.plates{display:flex;align-items:center;gap:2px;height:46px;min-width:0}
+.plates .bar{width:22px;height:6px;background:var(--p125);border-radius:2px}
+.plate{width:9px;border-radius:2px;border:1px solid rgba(0,0,0,.25)}
+.pl-cap{font:500 11px var(--f-mono);color:var(--muted);margin-left:8px;white-space:nowrap}
+
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;font-weight:600;padding:8px 18px;border-bottom:1px solid var(--line)}
+td{padding:10px 18px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.ex{font-weight:600}
+td.ex small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
+td.sr{font:600 14px var(--f-mono);white-space:nowrap;font-variant-numeric:tabular-nums}
+td.it{font:500 13px var(--f-mono);white-space:nowrap;color:var(--muted)}
+.tag{font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--line);white-space:nowrap;color:var(--muted)}
+.tag.pri{border-color:var(--accent);color:var(--accent)}
+.empty{padding:18px;color:var(--muted);font-size:14px}
+
+.foot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:14px 18px;font-size:13px;color:var(--muted);min-width:0}
+.card h3{font-size:16px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink);margin-bottom:6px}
+.card ol,.card ul{margin:0;padding-left:18px;display:grid;gap:4px}
+.card code{font-family:var(--f-mono);color:var(--ink)}
+
+@media (max-width:760px){
+  .weeks{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .days{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+  .day{padding:8px 6px 8px 12px}
+  .day span{display:none}
+  .lift{grid-template-columns:minmax(0,1fr);gap:6px}
+  .foot{grid-template-columns:minmax(0,1fr)}
+  .brand h1{font-size:38px}
+  td,th{padding-left:12px;padding-right:12px}
+}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:in .18s ease-out}@keyframes in{from{transform:translateY(3px)}to{transform:none}}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>PL28</h1>
+      <p>20 settimane · 5 giorni · carichi calcolati dai massimali</p>
+    </div>
+    <div class="maxes" role="group" aria-label="Massimali">
+      <div class="max"><label for="mS">Squat</label><input id="mS" type="number" step="2.5" min="0" inputmode="decimal"></div>
+      <div class="max"><label for="mB">Panca</label><input id="mB" type="number" step="2.5" min="0" inputmode="decimal"></div>
+      <div class="max"><label for="mD">Stacco</label><input id="mD" type="number" step="2.5" min="0" inputmode="decimal"></div>
+      <div class="total">Totale <b id="tot"></b></div>
+    </div>
+  </header>
+
+  <section aria-label="Settimana">
+    <div class="weeks" id="weeks"></div>
+  </section>
+
+  <section aria-label="Giorno">
+    <div class="days" id="days"></div>
+  </section>
+
+  <article class="sheet" id="sheet"></article>
+
+  <section class="foot">
+    <div class="card">
+      <h3>Ordine dei giorni</h3>
+      <ol>
+        <li>E (e qualsiasi presa pesante) mai il giorno prima di B o D.</li>
+        <li>B e D mai consecutivi.</li>
+        <li>Se possibile A e D non consecutivi.</li>
+      </ol>
+      <p style="margin:8px 0 0">Sequenza tipo: <code>A – B – E – C – off – D – off</code></p>
+    </div>
+    <div class="card">
+      <h3>Notazione</h3>
+      <ul>
+        <li><code>RT</code> rep totali al carico, serie libere · <code>ist.</code> serie istintiva</li>
+        <li><code>@7</code> RPE · <code>90%</code> del top set del giorno · <code>EMOM n</code> 1 rep/min per n minuti</li>
+        <li>Accessori: doppia progressione. Niente straps su RDL, rematore, pulley, lat machine.</li>
+        <li>Dischi per lato con bilanciere da 20 kg, senza fermi.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+const DATA = {"blocks": ["Blocco 1 – Accumulo", "Blocco 2 – Intensificazione", "Blocco 3 – Forza", "Blocco 4 – Forza massimale + test"], "cols": [{"h": "Squat stress (A)", "d": "A", "v": ["discesa 4''", "no var.", "no var.", "no var."], "w": ["4x5 + ist. {S.57}kg", "4x5 + ist. {S.62}kg", "4x5 + ist. {S.675}kg", "4x4 + ist. {S.73}kg", "3x4 {S.675}kg", "{S.805}kg 30-35RT", "{S.83}kg 25-30RT", "{S.78}kg 35-40RT", "{S.857}kg 25-30RT", "{S.78}kg 20RT", "{S.883}kg 20-25RT", "{S.857}kg 30-35RT", "{S.91}kg 15-20RT", "{S.935}kg 10-15RT", "5x3 {S.83}kg", "1@8 + 90% 4x3", "1@8 + 90% 3x3", "1@8/9 + 90% 3x2", "1@7 + 85% 3x2", "3x2 {S.75}kg veloci"]}, {"h": "Squat tecnica (C)", "d": "C", "v": ["HB discesa 3''", "HB fermo prima della buca", "HB discesa 2''", "no var."], "w": ["4x6 {S.60}kg", "4x6 {S.625}kg", "4x6 {S.65}kg", "4x6 {S.675}kg", "3x5 {S.625}kg", "5@6/7 {S.675}-{S.755}kg", "5@6/7 {S.675}-{S.755}kg", "5@6/7 {S.675}-{S.755}kg", "5@6/7 {S.675}-{S.755}kg", "3x5 {S.65}kg", "5@6/7 {S.725}-{S.805}kg", "5@6/7 {S.725}-{S.805}kg", "5@6/7 {S.725}-{S.805}kg", "5@6/7 {S.725}-{S.805}kg", "3x4 {S.70}kg", "4x4 {S.78}kg", "4x3 {S.805}kg", "3x3 {S.805}kg", "3x2 {S.755}kg", "—"]}, {"h": "Squat stim. (D)", "d": "D", "v": ["fermo in buca 2''", "fermo in buca 2''", "no var.", "no var."], "w": ["4@7 + 90% 3x4", "3@7 + 90% 3x4", "carico 3@7 sett. prec. 3-ist.-3-ist.", "2@7 + 90% 3x3", "3x3 85% del 2@7 sett. prec.", "3@7 + 90% 3x3", "2@7 + 90% 2-ist.-2", "1@7 + 85% 1-ist.-1", "5x1 @7/8 {S.83}-{S.91}kg", "3x2 {S.78}kg", "3@7/8 + 90% 3x3", "2@8 + 90% 3x2", "4x2 {S.883}kg", "1@8 + 90% 3x2", "3x2 {S.83}kg", "4x3 {S.857}kg", "4x2 {S.896}kg", "3x2 {S.91}kg", "ENTRATA (~{S.92}kg)", "TEST"]}, {"h": "Panca var. (A)", "d": "A", "v": ["discesa 3''", "presa stretta fermo 2''", "presa stretta board 4cm", "discesa 3''"], "w": ["4x6 {B.655}kg", "4x6 {B.675}kg", "4x5 {B.69}kg", "4x5 {B.71}kg", "3x5 {B.655}kg", "5x4 {B.73}kg", "5x3 {B.77}kg", "6x2 {B.81}kg", "4x2 {B.825}kg", "3x3 {B.73}kg", "3@6 + stesso peso 4x2", "3@6 + ladder", "6x2 {B.885}kg", "5x2 {B.905}kg", "3x3 {B.81}kg", "5x3 {B.77}kg", "5x2 {B.81}kg", "4x2 {B.825}kg", "3x2 {B.77}kg", "—"]}, {"h": "Panca stress (B)", "d": "B", "v": ["no var.", "no var.", "no var.", "no var."], "w": ["5x5 {B.77}kg", "5x5 {B.79}kg", "5x4 {B.825}kg", "5x4 {B.845}kg", "3x4 {B.77}kg", "1x1 {B.885}kg + 5x3 {B.845}kg", "1x1 {B.905}kg + 4x3 {B.865}kg", "6x2 {B.885}kg", "1x1 {B.925}kg + 4x2 {B.885}kg", "3x3 {B.81}kg", "1@8 + 90% 4x3", "1@8 + 90% 5x2", "4-6x3 {B.905}kg", "1@8/9 + 90% 4x2", "3x3 {B.845}kg", "1@8 + 92,5% 3x2", "1@8/9 + 90% 3x2", "1@9 + 90% 2x2", "1@7 + 85% 3x2", "3x2 {B.77}kg veloci"]}, {"h": "Panca rig. (C)", "d": "C", "v": ["spoto", "spoto larsen", "spoto larsen", "spoto"], "w": ["4x3 @6/7", "4x3 @6/7", "4x3 @6/7", "4x3 @6/7", "3x3 @6", "4x3 @6/7", "4x3 @6/7", "4x3 @6/7", "4x3 @6/7", "3x3 @6", "4x2 @6/7", "4x2 @6/7", "4x2 @6/7", "4x2 @6/7", "3x2 @6", "4x2 @6/7", "4x2 @6/7", "4x2 @6/7", "3x2 @6", "—"]}, {"h": "Panca stim. (D)", "d": "D", "v": ["3 fermi", "fermo 2''", "no var.", "no var."], "w": ["3@8 + 90% 4x2", "2@8 + 90% 4x2", "4x1 + ist. no var.", "1@8 + 90% 4x2", "3x2 @7", "3@7 + 90% 4x2", "2@7/8 + 90% 4x2", "5x1 @7/8", "1@8 + 90% 4x2", "3x2 @7", "5x2 @7 max @8", "1@7 + 90% 4x2 + 1@8", "5x1 @7/8", "4x1 + ist. peso 1@8 sett. prec.", "3x2 @7", "3x2 @8", "2x2 @8", "1@8 + 90% 3x1", "ENTRATA (~{B.92}kg)", "TEST"]}, {"h": "Stacco stress (B)", "d": "B", "v": ["dai blocchi", "no var.", "no var.", "no var."], "w": ["5@7 + 90% 3x5", "5@7/8 + 90% 3x4", "4@7/8 + 90% 3x4", "3@8 + 90% 3x3", "3x3 80% del 3@8 sett. prec.", "4x4 {D.795}kg", "3-ist.-3-ist. {D.795}kg", "5x3 {D.83}kg", "6x2 {D.865}kg", "3x3 {D.773}kg", "5x3 {D.84}kg", "6x2 {D.885}kg", "1-ist.-1-ist. {D.885}kg", "5x1 {D.91}kg @8", "3x2 {D.82}kg", "1@8 + 90% 3x2", "1@8/9 + 90% 2x2", "1@8 + 85% 3x1", "3x2 {D.727}kg veloci", "—"]}, {"h": "Stacco stim. (D)", "d": "D", "v": ["fermo in partenza", "salita 3''", "deficit 3cm", "no var."], "w": ["3@7 + 90% 3x3", "2@7 + 90% 3x3", "3@belli + stesso peso EMOM @bello", "EMOM 12 {D.75}kg", "4x2 {D.705}kg", "4x2 {D.727}kg", "5x2 {D.75}kg", "4x1 {D.795}kg", "5x1 {D.818}kg", "3x1 {D.727}kg", "3@7 + 90% 3x3", "2@7 + 90% 3x2", "EMOM 10 @7", "1@8 + 90% 3x1", "3x2 {D.727}kg", "EMOM 10 {D.795}kg", "EMOM 8 {D.818}kg", "4x1 {D.84}kg veloci", "ENTRATA (~{D.91}kg)", "TEST"]}, {"h": "Trazioni (A)", "d": "A", "v": ["zavorrate", "zavorrate", "zavorrate", "zavorrate"], "w": ["30RT +5kg", "30RT +7,5kg", "30RT +10kg", "25RT +12,5kg", "20RT +5kg", "30RT +10kg", "25RT +12,5kg", "25RT +15kg", "20RT +17,5kg", "20RT +7,5kg", "25RT +15kg", "20RT +17,5kg", "15-20RT +20kg", "12-15RT +22,5kg", "20RT +10kg", "MAV4 +20kg", "MAV3 +22,5kg", "MAV2 +25kg", "15RT +10kg", "TEST (1RM zavorrata o max rep)"]}], "acc": [{"d": "A", "n": "Affondi", "i": "parti con lato debole", "g": "Quadricipiti", "r": "8-10", "x": "RIR 2", "s": [3, 3, 3, 2]}, {"d": "A", "n": "Leg extension", "i": "1\" contrazione", "g": "Quadricipiti", "r": "8-10", "x": "RIR 1", "s": [3, 3, 3, 2]}, {"d": "A", "n": "Side bend con manubrio", "i": "lato debole prima, ROM completo, niente slancio", "g": "Core laterale/rotazionale", "r": "10-15", "x": "RIR 1-2", "s": [3, 4, 4, 3]}, {"d": "A", "n": "Side plank gamba in abduzione", "i": "parti con lato debole", "g": "Core laterale/rotazionale", "r": "max", "x": "—", "s": [2, 2, 2, 2]}, {"d": "B", "n": "Stacco rumeno", "i": "dopo lo stacco, niente straps", "g": "Femorali/glutei", "r": "8-10 (B1) / 6-8 (B2-B4)", "x": "RIR 2-3", "s": [3, 3, 3, 2]}, {"d": "B", "n": "Leg curl seduto", "i": "1\" in allungamento", "g": "Femorali/glutei", "r": "8-12", "x": "RIR 1", "s": [3, 3, 3, 3]}, {"d": "B", "n": "Rematore petto in appoggio", "i": "gomiti 30-45°, 1\" contrazione", "g": "Dorsali", "r": "8-12", "x": "RIR 1-2", "s": [3, 3, 3, 3]}, {"d": "B", "n": "Curl bilanciere EZ", "i": "niente slancio, discesa 2\"", "g": "Bicipiti", "r": "8-12", "x": "RIR 1", "s": [3, 3, 3, 3]}, {"d": "B", "n": "Face pull", "i": "deprimi bene e fermo 1\" in contr.", "g": "Spalle", "r": "10-15", "x": "RIR 2", "s": [3, 3, 3, 2]}, {"d": "C", "n": "Hip thrust", "i": "2\" in contrazione", "g": "Femorali/glutei", "r": "8-10", "x": "RIR 1-2", "s": [3, 3, 3, 3]}, {"d": "C", "n": "Stacco rumeno monopodalico", "i": "manubrio controlaterale, bacino chiuso (anti-rotazione)", "g": "Femorali/glutei", "r": "8-10/lato", "x": "RIR 2", "s": [2, 2, 2, 2]}, {"d": "C", "n": "Serratus punch al cavo", "i": "braccio teso, protrazione massima + 1\" fermo", "g": "Serrato", "r": "10-15", "x": "RIR 1", "s": [3, 3, 4, 3]}, {"d": "C", "n": "Curl inclinato con manubri", "i": "spalla indietro, allungamento completo", "g": "Bicipiti", "r": "10-12", "x": "RIR 1", "s": [2, 3, 3, 2]}, {"d": "C", "n": "Suitcase carry", "i": "pesante, busto verticale, lato debole prima (conta anche come presa)", "g": "Core laterale/rotazionale", "r": "30 m/lato", "x": "—", "s": [3, 3, 3, 3]}, {"d": "C", "n": "Pallof press", "i": "2\" fermo a braccia tese", "g": "Core laterale/rotazionale", "r": "10/lato", "x": "—", "s": [3, 3, 3, 2]}, {"d": "C", "n": "Extrarotazioni", "i": "leggere", "g": "Spalle", "r": "12-15", "x": "RIR 3", "s": [2, 2, 2, 2]}, {"d": "D", "n": "Back extension 45°", "i": "glutei, dorso neutro, zavorra al petto", "g": "Femorali/glutei", "r": "10-15", "x": "RIR 2", "s": [3, 3, 3, 2]}, {"d": "D", "n": "Leg curl sdraiato", "i": "discesa 3\"", "g": "Femorali/glutei", "r": "10-15", "x": "RIR 1", "s": [2, 3, 3, 2]}, {"d": "D", "n": "Pulley presa larga", "i": "omero parallelo al tronco non oltre", "g": "Dorsali", "r": "8-12", "x": "RIR 1-2", "s": [3, 3, 3, 3]}, {"d": "D", "n": "Landmine rotation", "i": "rotazione dalle anche, busto rigido", "g": "Core laterale/rotazionale", "r": "8/lato", "x": "RIR 2", "s": [3, 3, 3, 3]}, {"d": "D", "n": "Polpacci alla pressa", "i": "1\" allungamento", "g": "Polpacci", "r": "8-10", "x": "RIR 1", "s": [3, 3, 3, 3]}, {"d": "D", "n": "Copenaghen plank", "i": "lato debole prima", "g": "Adduttori", "r": "max", "x": "—", "s": [2, 2, 2, 2]}, {"d": "E", "n": "Lat machine monolaterale", "i": "allungamento completo in alto, 1\" fermo", "g": "Dorsali", "r": "8-12", "x": "RIR 1", "s": [3, 4, 4, 3]}, {"d": "E", "n": "Pullover al cavo", "i": "braccia quasi tese, busto inclinato", "g": "Dorsali", "r": "10-15", "x": "RIR 0-1", "s": [3, 3, 3, 3]}, {"d": "E", "n": "Landmine press monolaterale", "i": "spingi fino a protrazione completa della scapola", "g": "Serrato", "r": "8-12", "x": "RIR 1-2", "s": [3, 3, 3, 3]}, {"d": "E", "n": "Push-up plus (zavorrati)", "i": "protrazione completa in alto", "g": "Serrato", "r": "12-15", "x": "RIR 1", "s": [2, 2, 2, 2]}, {"d": "E", "n": "Bayesian curl", "i": "cavo dietro, braccio in estensione", "g": "Bicipiti", "r": "10-15", "x": "RIR 0-1", "s": [3, 3, 4, 3]}, {"d": "E", "n": "Hammer curl", "i": "presa neutra, niente slancio", "g": "Bicipiti", "r": "8-12", "x": "RIR 1", "s": [3, 3, 3, 3]}, {"d": "E", "n": "Alzate laterali", "i": "", "g": "Spalle", "r": "10-15", "x": "RIR 0-1", "s": [3, 3, 3, 3]}, {"d": "E", "n": "Wrist curl", "i": "ROM completo, lascia rotolare il bilanciere sulle dita", "g": "Avambracci/presa", "r": "12-20", "x": "RIR 0-1", "s": [3, 3, 3, 3]}, {"d": "E", "n": "Reverse curl EZ", "i": "", "g": "Avambracci/presa", "r": "10-15", "x": "RIR 1", "s": [3, 3, 3, 3]}, {"d": "E", "n": "Tenuta bilanciere fat grip / farmer", "i": "20-40\", doppia prona; solo se domani non c'è B o D", "g": "Avambracci/presa", "r": "20-40\"", "x": "—", "s": [3, 3, 4, 3]}, {"d": "E", "n": "Hanging leg raise", "i": "bacino in retroversione, niente slancio", "g": "Addome", "r": "8-15", "x": "RIR 1", "s": [3, 3, 3, 3]}]};
+const DAYS = {
+  A:{t:"Squat · panca · trazioni", c:"var(--dA)"},
+  B:{t:"Panca · stacco", c:"var(--dB)"},
+  C:{t:"Squat tecnica · panca", c:"var(--dC)"},
+  D:{t:"Squat · panca · stacco", c:"var(--dD)"},
+  E:{t:"Ipertrofia upper", c:"var(--dE)"}
+};
+const LIGHT = [5,10,15];
+const PRIORITY = new Set(["Dorsali","Bicipiti","Serrato","Avambracci/presa","Femorali/glutei","Core laterale/rotazionale"]);
+const PLATES = [[25,"var(--p25)",44],[20,"var(--p20)",40],[15,"var(--p15)",34],[10,"var(--p10)",28],[5,"var(--p5)",22],[2.5,"var(--p25k)",18],[1.25,"var(--p125)",14]];
+const DEF = {S:192.5,B:130,D:220};
+
+function load(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+
+const state = {
+  week: load("pl28.week",1), day: load("pl28.day","A"),
+  max: Object.assign({},DEF,load("pl28.max",{}))
+};
+const hashM = /^#w(\d{1,2})([a-e])$/i.exec(location.hash||"");
+if(hashM){const w=+hashM[1]; if(w>=1&&w<=20){state.week=w; state.day=hashM[2].toUpperCase();}}
+
+const it = n => (Math.round(n*100)/100).toString().replace(".",",");
+const mround = (x) => Math.round(x/2.5)*2.5;
+function resolve(s){
+  return s.replace(/\{([SBD])(\.\d+)\}/g,(m,l,p)=>it(mround(state.max[l]*parseFloat(p))));
+}
+function topKg(s){
+  const re=/(\d+(?:,\d+)?)kg/g; let m, best=0;
+  while((m=re.exec(s))) best=Math.max(best,parseFloat(m[1].replace(",",".")));
+  return best;
+}
+function platesFor(kg){
+  let side=(kg-20)/2; const out=[];
+  if(side<0) return null;
+  for(const [w,c,h] of PLATES){ while(side>=w-1e-9){ out.push([w,c,h]); side-=w; } }
+  return out;
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+function renderSelectors(){
+  const wk=document.getElementById("weeks");
+  wk.innerHTML = DATA.blocks.map((b,bi)=>{
+    const btns=[1,2,3,4,5].map(i=>{const w=bi*5+i; const light=LIGHT.includes(w);
+      return `<button class="wk${light?" light":""}" data-w="${w}" aria-pressed="${w===state.week}" title="Settimana ${w}${light?" · transizione":w===19?" · entrata":w===20?" · test":""}">${w}</button>`}).join("");
+    return `<div class="blk"><div class="label">${esc(b)}</div><div class="row">${btns}</div></div>`;
+  }).join("");
+  const dy=document.getElementById("days");
+  dy.innerHTML = Object.entries(DAYS).map(([k,v])=>`<button class="day" style="--dc:${v.c}" data-d="${k}" aria-pressed="${k===state.day}"><b>${k}</b><span>${v.t}</span></button>`).join("");
+}
+
+function renderSheet(){
+  const w=state.week, d=state.day, b=Math.floor((w-1)/5);
+  const light=LIGHT.includes(w)||w===20;
+  const phase = LIGHT.includes(w)?"Transizione":w===19?"Entrata":w===20?"Test":"Carico";
+  const mains = DATA.cols.filter(c=>c.d===d);
+  const accs = DATA.acc.filter(a=>a.d===d).map(a=>({...a,sets:a.s[b]-(light?1:0)})).filter(a=>a.sets>0);
+
+  let banner="";
+  if(LIGHT.includes(w)) banner=`<div class="banner">Settimana di transizione: accessori già scalati di 1 serie, tieni RIR +1.</div>`;
+  if(w===19) banner=`<div class="banner">Entrata pesante sul giorno D (~92%). Nessun tentativo oltre l’indicato.</div>`;
+  if(w===20) banner=`<div class="banner">Settimana test: TEST sul giorno D, A–B–C leggeri, E facoltativo. Accessori scalati di 1 serie.</div>`;
+  if(d==="E") banner+=`<div class="banner">Fai E solo se domani non c’è B o D.</div>`;
+
+  const liftRows = mains.map(c=>{
+    const rx=resolve(c.w[w-1]);
+    const nm=c.h.replace(/\s*\([A-E]\)$/,"");
+    let pl="";
+    if(!c.h.startsWith("Trazioni")){
+      const kg=topKg(rx); const p=kg?platesFor(kg):null;
+      if(p) pl=`<div class="plates" aria-label="Dischi per lato a ${it(kg)} kg"><div class="bar"></div>${p.map(([pw,pc,ph])=>`<div class="plate" style="height:${ph}px;background:${pc}" title="${it(pw)} kg"></div>`).join("")}<span class="pl-cap">${it(kg)}: ${p.map(x=>it(x[0])).join("+")||"vuoto"}</span></div>`;
+    }
+    return `<div class="lift"><div><div class="nm">${esc(nm)}</div><div class="var">${esc(c.v[b])}</div></div><div class="rx">${esc(rx)}</div><div>${pl}</div></div>`;
+  }).join("");
+
+  const accRows = accs.map(a=>`<tr><td class="ex">${esc(a.n)}${a.i?`<small>${esc(a.i)}</small>`:""}</td><td class="sr">${a.sets}×${esc(a.r)}</td><td class="it">${esc(a.x)}</td><td><span class="tag${PRIORITY.has(a.g)?" pri":""}">${esc(a.g)}</span></td></tr>`).join("");
+
+  const el=document.getElementById("sheet");
+  el.style.setProperty("--dc",DAYS[d].c);
+  el.innerHTML = `
+    <div class="sheet-head">
+      <div style="display:grid;gap:6px">
+        <h2>Settimana ${w} · <i>Giorno ${d}</i></h2>
+        <div class="meta"><span class="pill">${esc(DATA.blocks[b])}</span><span class="pill${phase!=="Carico"?" warn":""}">${phase}</span><span class="pill">${mains.length} fondamentali · ${accs.length} accessori</span></div>
+      </div>
+      <div class="nav"><button id="prev" ${w===1&&d==="A"?"disabled":""}>← Prec.</button><button id="next" ${w===20&&d==="E"?"disabled":""}>Succ. →</button></div>
+    </div>
+    ${banner}
+    ${mains.length?`<div class="sec"><h3>Fondamentali</h3></div><div>${liftRows}</div>`:`<div class="empty">Nessun fondamentale: sessione di ipertrofia per dorsali, bicipiti, serrato, avambracci.</div>`}
+    <div class="sec"><h3>Accessori</h3></div>
+    <div class="tbl"><table><thead><tr><th>Esercizio</th><th>Serie×rep</th><th>Intensità</th><th>Gruppo</th></tr></thead><tbody>${accRows}</tbody></table></div>`;
+  document.getElementById("prev").onclick=()=>step(-1);
+  document.getElementById("next").onclick=()=>step(1);
+}
+
+function step(dir){
+  const keys=Object.keys(DAYS); let i=keys.indexOf(state.day)+dir, w=state.week;
+  if(i<0){ if(w===1) return; w--; i=keys.length-1; }
+  if(i>=keys.length){ if(w===20) return; w++; i=0; }
+  set(w,keys[i]);
+}
+function set(w,d){
+  state.week=w; state.day=d; save("pl28.week",w); save("pl28.day",d);
+  try{history.replaceState(null,"",`#w${w}${d.toLowerCase()}`)}catch(e){}
+  renderSelectors(); renderSheet();
+}
+function renderTotal(){document.getElementById("tot").textContent=it(state.max.S+state.max.B+state.max.D)}
+
+document.getElementById("weeks").addEventListener("click",e=>{const t=e.target.closest("[data-w]"); if(t) set(+t.dataset.w,state.day)});
+document.getElementById("days").addEventListener("click",e=>{const t=e.target.closest("[data-d]"); if(t) set(state.week,t.dataset.d)});
+for(const k of ["S","B","D"]){
+  const inp=document.getElementById("m"+k); inp.value=state.max[k];
+  inp.addEventListener("input",()=>{const v=parseFloat(inp.value); if(v>0){state.max[k]=v; save("pl28.max",state.max); renderTotal(); renderSheet();}});
+}
+document.addEventListener("keydown",e=>{ if(e.target.tagName==="INPUT") return; if(e.key==="ArrowRight") step(1); if(e.key==="ArrowLeft") step(-1); });
+
+renderTotal(); renderSelectors(); renderSheet();
+</script>
+
+</body>
+</html>
