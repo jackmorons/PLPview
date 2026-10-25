@@ -60,7 +60,7 @@ describe("programs and revisions (§7.7)", () => {
     expect(lib.editedMaxes(q.id)).toEqual({});
     expect(lib.position(q.id)).toEqual({ week: 12, day: "D" });
     expect(lib.position(p.id)).toEqual({ week: 3, day: "B" });
-    expect(lib.model(q.id).lifts[0].max).toBe(150);
+    expect(lib.model(q.id).lifts[0].defaultMax).toBe(150);
   });
 
   it("updates from an edited file: exact summary, maxes kept, position clamped, same id", async () => {
@@ -74,7 +74,7 @@ describe("programs and revisions (§7.7)", () => {
     expect(a.sameName.id).toBe(p.id);
     expect(lib.preview(p.id, a)).toEqual({
       weeks: [20, 19], blocks: [4, 4], days: ["ABCDE", "ABCDE"],
-      slotsAdded: [], slotsRemoved: [], cellsChanged: 1, accessoriesAdded: [], accessoriesRemoved: [],
+      mainAdded: [], mainRemoved: [], accAdded: [], accRemoved: [], itemsChanged: 1, itemsAdded: 0, itemsRemoved: 0,
     });
 
     await lib.update(p.id, a);
@@ -134,6 +134,33 @@ describe("programs and revisions (§7.7)", () => {
     expect(lib.active().id).toBe(c.id);
     expect([...store.data.keys()].some((k) => k.includes(p.id))).toBe(false);
     expect(store.data.has(`files/${p.revisions[0].revisionId}.xlsx`)).toBe(false);
+  });
+
+  it("upgrades a program saved by milestone 3 (schema 1) when loading", async () => {
+    const { store, lib, p } = await withPL28();
+    const saved = JSON.parse(store.data.get(`programs/${p.id}.json`));
+    const v1 = { schemaVersion: 1, lifts: [{ id: "squat", name: "Squat", max: 100 }], blocks: [{ name: "B1", variants: ["no var."] }],
+      weeks: [{ number: 1, phase: "TEST", block: 0 }], days: ["A"], slots: [{ name: "Squat", day: "A" }],
+      prescriptions: [[{ parts: ["3x3 ", { lift: "squat", pct: 0.8, step: 2.5 }, "kg"] }]],
+      accessories: [{ day: "A", name: "Plank", instructions: "", group: "Core", reps: "max", intensity: "RIR 1", sets: [3], volumeOnly: false }],
+      notes: [] };
+    saved.revisions[0].model = v1;
+    store.data.set(`programs/${p.id}.json`, JSON.stringify(saved));
+    const relaunched = createLibrary(store, deps);
+    await relaunched.load();
+    const m = relaunched.model(p.id);
+    expect(m.schemaVersion).toBe(2);
+    expect(m.weeks[0].type).toBe("test");
+    expect(m.weeks[0].days[0].items.map((i) => [i.name, i.prescription.parts[0], i.load?.parts[0] ?? null]))
+      .toEqual([["Squat", "3x3 ", null], ["Plank", "2xmax", "RIR 2"]]);
+    expect(JSON.parse(store.data.get(`programs/${p.id}.json`)).revisions[0].model.schemaVersion).toBe(2); // saved upgraded
+  });
+
+  it("imports a coach-format file next to a PL28-format one", async () => {
+    const { lib } = await withPL28();
+    const c = await lib.create(await lib.analyze({ name: "PL28_coach.xlsx", bytes: new Uint8Array(fixture("PL28_coach.xlsx")) }));
+    expect(lib.model(c.id).format).toBe("coach");
+    expect(lib.position(c.id)).toEqual({ week: 1, day: "A" });
   });
 
   it("drops edited maxes of lifts that no longer exist", async () => {

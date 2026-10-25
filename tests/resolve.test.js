@@ -1,7 +1,7 @@
-// resolve.js helpers: plates, top load, session order, model checks.
+// resolve.js helpers and model rules.
 import { describe, it, expect } from "vitest";
-import { platesPerSide, topKg, sessionOrder, daySubtitle, mround } from "../src/resolve.js";
-import { validateProgram, migrate } from "../src/model.js";
+import { platesPerSide, topKg, sessionOrder, daySubtitle, mround, daysOf } from "../src/resolve.js";
+import { validateProgram, migrate, rirPlusOne, weekType } from "../src/model.js";
 import { pl28 } from "./helpers.js";
 
 describe("plates", () => {
@@ -17,6 +17,7 @@ describe("plates", () => {
     expect(topKg("5@6/7 130-145kg")).toBe(145);
     expect(topKg("1x1 112,5kg + 5x3 110kg")).toBe(112.5);
     expect(topKg("4@7 + 90% 3x4")).toBe(0);
+    expect(topKg(null)).toBe(0);
   });
   it("rounds like Excel's MROUND", () => {
     expect(mround(114, 2.5)).toBe(115);
@@ -31,21 +32,26 @@ describe("program model", () => {
     expect(o).toHaveLength(100);
     expect(o[0]).toEqual({ week: 1, day: "A" });
     expect(o[5]).toEqual({ week: 2, day: "A" });
+    expect(daysOf(m, 3)).toEqual(["A", "B", "C", "D", "E"]);
   });
-  it("builds day subtitles from the slot names", () => {
-    expect(daySubtitle(m, "B")).toBe("Panca stress · Stacco stress");
-    expect(daySubtitle(m, "E")).toBe("Ipertrofia / accessori");
+  it("builds day subtitles from that week's main lifts", () => {
+    expect(daySubtitle(m, 1, "B")).toBe("Panca stress · Stacco stress");
+    expect(daySubtitle(m, 1, "E")).toBe("Ipertrofia / accessori");
   });
   it("PL28 passes validateProgram, a broken model doesn't", () => {
     expect(validateProgram(m)).toEqual([]);
     const bad = structuredClone(m);
-    bad.weeks[3].number = 7;
-    bad.prescriptions[0][0].parts[1].lift = "front squat";
-    bad.accessories[0].sets.pop();
-    expect(validateProgram(bad).map((e) => e.path)).toEqual(["weeks.3.number", "prescriptions.0.0", "accessories.0.sets"]);
+    bad.weeks[3].n = 7;
+    bad.weeks[0].days[0].items[0].prescription.parts[1].lift = "front squat";
+    bad.weeks[1].type = "leggera";
+    expect(validateProgram(bad).map((e) => e.path)).toEqual(["weeks.0.days.0.items.0.prescription", "weeks.1.type", "weeks.3.n"]);
   });
-  it("migrate accepts v1 and refuses a newer schema", () => {
+  it("migrate refuses a newer schema", () => {
     expect(migrate(m)).toBe(m);
-    expect(() => migrate({ ...m, schemaVersion: 2 })).toThrow(/versione più recente/);
+    expect(() => migrate({ ...m, schemaVersion: 3 })).toThrow(/versione più recente/);
+  });
+  it("RIR +1 and week types", () => {
+    expect(["RIR 0-1", "RIR 2", "@7/8", "—"].map(rirPlusOne)).toEqual(["RIR 1-2", "RIR 3", "@7/8", "—"]);
+    expect(["", "TEST", " Picco ", "leggera"].map(weekType)).toEqual(["normale", "test", "picco", null]);
   });
 });

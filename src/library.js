@@ -8,7 +8,7 @@
 //   maxes/<id>.json       maxes edited in the app, {liftId: kg}; missing lifts use the file's value
 //   files/<revisionId>.xlsx  the original file of each revision, for "Esporta file originale"
 import { parseXlsx } from "./parser.js";
-import { migrate } from "./model.js";
+import { migrate, SCHEMA_VERSION } from "./model.js";
 import {
   newProgram, newRevision, addRevision, restoreRevision, currentRevision, findBySha, displayName,
   carryMaxes, clampPosition, changeSummary,
@@ -38,7 +38,10 @@ export function createLibrary(store, deps = {}) {
       for (const f of await store.list("programs")) {
         const p = await store.readJSON(`programs/${f}`);
         if (!p) continue;
-        p.revisions.forEach((r) => migrate(r.model));
+        // Programs saved by an older version of the app are upgraded in memory, and saved upgraded.
+        const old = p.revisions.some((r) => r.model.schemaVersion !== SCHEMA_VERSION);
+        p.revisions = p.revisions.map((r) => ({ ...r, model: migrate(r.model) }));
+        if (old) await saveProgram(p);
         programs.push(p);
         maxes[p.id] = (await store.readJSON(`maxes/${p.id}.json`)) || {};
       }

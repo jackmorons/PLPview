@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as XLSX from "xlsx";
 import { parseXlsx } from "../src/parser.js";
-import { renderRx, maxesFor, session } from "../src/resolve.js";
+import { render, maxesFor, session } from "../src/resolve.js";
+import { slotItem } from "./helpers.js";
 
 const bytes = readFileSync(fileURLToPath(new URL("../examples/example.xlsx", import.meta.url)));
 const r = parseXlsx(bytes);
@@ -22,8 +23,8 @@ describe("example.xlsx", () => {
     expect(m.blocks.map((b) => b.name)).toEqual(["Blocco 1 – Accumulo", "Blocco 2 – Intensificazione"]);
     expect(m.days).toEqual(["A", "B", "C"]);
     expect(m.lifts.map((l) => l.name)).toEqual(["Squat", "Panca", "Stacco"]);
-    expect(m.accessories).toEqual([]);
-    expect(m.weeks.map((w) => w.phase)).toEqual(["", "", "", "", "transizione", "", "", "", "", "TEST"]);
+    expect(m.weeks.every((w) => w.days.every((d) => d.items.every((i) => i.kind === "main")))).toBe(true);
+    expect(m.weeks.map((w) => w.type)).toEqual(["normale", "normale", "normale", "normale", "transizione", "normale", "normale", "normale", "normale", "test"]);
   });
 
   it("cached values match the app's loads", () => {
@@ -33,8 +34,9 @@ describe("example.xlsx", () => {
     for (const [ref, cell] of Object.entries(ws)) {
       if (ref[0] === "!" || cell.f == null) continue;
       const { r: row, c } = XLSX.utils.decode_cell(ref);
-      const wi = m.weeks.findIndex((w) => w.number === ws[XLSX.utils.encode_cell({ r: row, c: 0 })].v);
-      expect(renderRx(m.prescriptions[wi][c - 2], maxes), ref).toBe(cell.v);
+      const weekN = ws[XLSX.utils.encode_cell({ r: row, c: 0 })].v;
+      const header = ws[XLSX.utils.encode_cell({ r: 0, c })].v;
+      expect(render(slotItem(m, weekN, header).prescription, maxes), ref).toBe(cell.v);
       n++;
     }
     expect(n).toBeGreaterThan(40);

@@ -25,8 +25,10 @@ dist/                              ← generated, never edit
 
 | File | Job | May use Capacitor? |
 |---|---|---|
-| `src/parser.js` | xlsx bytes → program model, or the list of errors | no (pure) |
-| `src/model.js` | the model's rules: `validateProgram()`, `migrate()` | no (pure) |
+| `src/parser.js` | xlsx bytes → program model, or the list of errors; picks the format | no (pure) |
+| `src/parse-pl28.js`, `src/parse-coach.js` | the two formats (`FORMAT.md`, `FORMAT-COACH.md`) | no (pure) |
+| `src/parse-common.js` | cell reading, formula grammar, Massimali, shared by both | no (pure) |
+| `src/model.js` | the model's rules: `validateProgram()`, `migrate()`, week types, `expandV1()` (PL28 → sessions) | no (pure) |
 | `src/resolve.js` | model + maxes → strings, accessory sets, plates | no (pure) |
 | `src/tools.js` | RPE, back-off, rep counter (milestone 5) | no (pure) |
 | `src/programs.js` | program rules: revisions (last 5), restore, what carries over on update, change summary | no (pure) |
@@ -51,11 +53,14 @@ computer in a couple of seconds.
    the app says **già importato** and offers to open that program. Otherwise it calls
    `parser.js → parseXlsx(bytes)`:
    - SheetJS reads the workbook, keeping each cell's formula (`cell.f`) and Excel's cached value (`cell.v`).
-   - `parseMassimali()` finds the lifts and remembers which row each one is on.
-   - `parseOverall()` reads blocks and weeks. Each formula goes through `parseFormula()`, which accepts only
-     the grammar in `FORMAT.md` and turns `MROUND(Massimali!$B$3*0.57,2.5)` into a token
-     `{lift: "squat", pct: 0.57, step: 2.5}`.
-   - `parseAccessori()` reads the accessories and their sets per block.
+   - `parseWorkbook()` picks the format: an `accessori` sheet means PL28 format (`parse-pl28.js`),
+     otherwise a `training log` sheet means coach format (`parse-coach.js`).
+   - `parse-common.js → parseMassimali()` finds the lifts and remembers which row each one is on.
+   - Every formula goes through `parseFormula()`, which accepts only the grammar in `FORMAT.md` and turns
+     `MROUND(Massimali!$B$3*0.57,2.5)` into a token `{lift: "squat", pct: 0.57, step: 2.5}`.
+   - PL28 format: `readV1()` reads overall and accessori, then `model.js → expandV1()` writes out every
+     session (one accessory set less and RIR +1 in light weeks). Coach format: each log row becomes an item;
+     `=overall!D3` cells are followed into `overall`.
    - `model.js → validateProgram()` checks the rules that don't depend on xlsx (weeks consecutive, etc.).
    - Result: `{ok: true, model}` or `{ok: false, errors: [{ref: "overall!D7", msg: "…"}]}`.
 4. If it failed, `ui/errors.js → showImportErrors()` lists every problem, copyable. Nothing is saved.
@@ -78,6 +83,8 @@ for lifts that still exist (`carryMaxes`) and pulls the last week/day back insid
   prototype (`fixtures/PL28_standalone.html`), and the same value Excel cached in the file.
 - `tests/parser.test.js`: PL28's structure, the formula grammar, and every rejection case from the spec.
 - `tests/resolve.test.js`: plates, rounding, session order, model rules.
+- `tests/coach.test.js`: the coach format: PL28_coach.xlsx, the same sessions as PL28.xlsx, PL27's errors, week types.
+- `tests/example.test.js`: `examples/example.xlsx` imports cleanly.
 - `tests/library.test.js`: saving and reloading, several programs, update with change summary, already imported, restore, delete.
 
 ## Glossary

@@ -50,7 +50,7 @@ const BLOCKS = [
       ["", ["1@8 + 90% 3x2", "1x1 [P.90]kg + 4x2 [P.85]kg", "5x2 [D.87]kg", "[P.75]kg 20-25RT", "4x3 [S.70]kg", "4x3 @7", "3x3 [D.675]kg"]],
       ["", ["4x2 [S.87]kg", "6x2 [P.86]kg", "EMOM 8 [D.80]kg", "[P.77]kg 20RT", "3x3 [S.72]kg", "4x3 @7/8", "3x3 [D.70]kg"]],
       ["", ["1@9 + 85% 2x2", "1@8/9 + 90% 3x2", "3x1 [D.90]kg @8", "[P.70]kg 15RT", "3x2 [S.70]kg", "3x2 @7", null]],
-      ["TEST", ["TEST", "TEST", "TEST", null, "—", "—", null]],
+      ["test", ["TEST", "TEST", "TEST", null, "—", "—", null]],
     ] },
 ];
 

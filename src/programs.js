@@ -3,7 +3,7 @@
 //
 // A saved program record:
 //   { id, name, createdAt, revisions: [{revisionId, fileName, sha256, importedAt, model}], settings }
-// The newest revision (last in the list) is the one shown. Edited maxes and the last week/day are kept
+// The newest revision (last in the list) is the one shown. Revision models are schema 2 (model.js). Edited maxes and the last week/day are kept
 // outside the record (maxes/<id>.json, state.json) and adjusted with carryMaxes() / clampPosition().
 
 export const MAX_REVISIONS = 5;
@@ -65,53 +65,65 @@ export function carryMaxes(edited, newModel) {
   return Object.fromEntries(Object.entries(edited || {}).filter(([id]) => ids.has(id)));
 }
 
-/** Last week/day after an update, clamped to the new program. */
+/** Last week/day after an update, clamped to the new program: last week at most, and a day that exists that week. */
 export function clampPosition(pos, model) {
-  const last = model.weeks[model.weeks.length - 1].number;
-  const week = Math.min(Math.max(pos?.week || 1, 1), last);
-  const day = model.days.includes(pos?.day) ? pos.day : model.days[0];
-  return { week, day };
+  const ns = model.weeks.map((w) => w.n);
+  const week = Math.min(Math.max(pos?.week || 1, ns[0]), ns[ns.length - 1]);
+  const w = model.weeks.find((x) => x.n === week) || model.weeks[0];
+  const letters = model.days.filter((d) => w.days.some((x) => x.letter === d));
+  const day = letters.includes(pos?.day) ? pos.day : letters[0];
+  return { week: w.n, day };
 }
 
 /**
- * What an update changes, shown before confirming (spec §4 P0.9):
- * weeks/blocks/days, main-lift slots added/removed, prescription cells changed, accessories added/removed.
+ * What an update changes, shown before confirming. Sessions are compared week by week and day by day;
+ * items are matched by kind + name (the n-th "panca" with the n-th "panca"), so a reordered day isn't "changed".
+ *   weeks/blocks/days: [old, new] counts (days as letters)
+ *   mainAdded/mainRemoved, accAdded/accRemoved: exercise names that appear or disappear across the program
+ *   itemsChanged: matched items whose instructions, prescription, load, group or note differ
+ *   itemsAdded/itemsRemoved: items that appear or disappear in weeks present in both
  */
 export function changeSummary(oldM, newM) {
-  const header = (s) => `${s.name} (${s.day})`;
-  const oldSlots = oldM.slots.map(header);
-  const newSlots = newM.slots.map(header);
-  const accKey = (a) => `${a.day} · ${a.name}`;
-  const oldAcc = oldM.accessories.map(accKey);
-  const newAcc = newM.accessories.map(accKey);
+  const names = (m, kind) => new Set(m.weeks.flatMap((w) => w.days.flatMap((d) => d.items.filter((i) => i.kind === kind).map((i) => i.name))));
+  const diff = (a, b) => [...b].filter((x) => !a.has(x));
+  const om = names(oldM, "main"), nm = names(newM, "main"), oa = names(oldM, "acc"), na = names(newM, "acc");
 
-  // Changed cells: same slot header and same week number in both, different content.
-  let cellsChanged = 0;
-  newM.weeks.forEach((w, nwi) => {
-    const owi = oldM.weeks.findIndex((x) => x.number === w.number);
-    if (owi < 0) return;
-    newSlots.forEach((h, nsi) => {
-      const osi = oldSlots.indexOf(h);
-      if (osi < 0) return;
-      if (JSON.stringify(oldM.prescriptions[owi][osi]) !== JSON.stringify(newM.prescriptions[nwi][nsi])) cellsChanged++;
-    });
-  });
+  let itemsChanged = 0, itemsAdded = 0, itemsRemoved = 0;
+  const key = (i) => `${i.kind}|${i.name}`;
+  for (const nw of newM.weeks) {
+    const ow = oldM.weeks.find((w) => w.n === nw.n);
+    if (!ow) continue;
+    for (const letter of new Set([...ow.days, ...nw.days].map((d) => d.letter))) {
+      const oi = ow.days.find((d) => d.letter === letter)?.items || [];
+      const ni = nw.days.find((d) => d.letter === letter)?.items || [];
+      const pool = new Map();
+      for (const i of oi) pool.set(key(i), [...(pool.get(key(i)) || []), i]);
+      for (const i of ni) {
+        const match = pool.get(key(i))?.shift();
+        if (!match) { itemsAdded++; continue; }
+        if (JSON.stringify(match) !== JSON.stringify(i)) itemsChanged++;
+      }
+      for (const left of pool.values()) itemsRemoved += left.length;
+    }
+  }
 
   return {
     weeks: [oldM.weeks.length, newM.weeks.length],
-    blocks: [oldM.blocks.length, newM.blocks.length],
+    blocks: [(oldM.blocks || []).length, (newM.blocks || []).length],
     days: [oldM.days.join(""), newM.days.join("")],
-    slotsAdded: newSlots.filter((h) => !oldSlots.includes(h)),
-    slotsRemoved: oldSlots.filter((h) => !newSlots.includes(h)),
-    cellsChanged,
-    accessoriesAdded: newAcc.filter((k) => !oldAcc.includes(k)),
-    accessoriesRemoved: oldAcc.filter((k) => !newAcc.includes(k)),
+    mainAdded: diff(om, nm),
+    mainRemoved: diff(nm, om),
+    accAdded: diff(oa, na),
+    accRemoved: diff(na, oa),
+    itemsChanged,
+    itemsAdded,
+    itemsRemoved,
   };
 }
 
 /** True when changeSummary found nothing (the file is different, e.g. a note, but the program isn't). */
 export function isEmptySummary(s) {
   return s.weeks[0] === s.weeks[1] && s.blocks[0] === s.blocks[1] && s.days[0] === s.days[1] &&
-    !s.slotsAdded.length && !s.slotsRemoved.length && !s.cellsChanged &&
-    !s.accessoriesAdded.length && !s.accessoriesRemoved.length;
+    !s.mainAdded.length && !s.mainRemoved.length && !s.accAdded.length && !s.accRemoved.length &&
+    !s.itemsChanged && !s.itemsAdded && !s.itemsRemoved;
 }

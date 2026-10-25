@@ -23,7 +23,7 @@ export function renderPrograms(el, ctx) {
           <section class="card prog${active ? " active" : ""}">
             <button class="prog-main" data-open="${p.id}" aria-label="${active ? "Programma attivo" : "Rendi attivo"}: ${esc(p.name)}">
               <div><h3>${esc(p.name)}</h3>
-                <div class="muted">${r.model.weeks.length} settimane · ${r.model.days.length} giorni</div>
+                <div class="muted">${r.model.weeks.length} settimane · ${r.model.days.length} giorni · ${r.model.format === "coach" ? "formato coach" : "formato PL28"}</div>
                 <div class="muted">Aggiornato il ${date(r.importedAt)} · ${esc(r.fileName)}</div></div>
               ${active ? `<span class="badge">Attivo</span>` : `<span class="btn link">Attiva</span>`}
             </button>
@@ -102,11 +102,13 @@ async function confirmUpdate(ctx, id, a) {
   const lines = [];
   const pair = ([x, y], what) => (x === y ? null : `${what}: ${x} → ${y}`);
   for (const l of [pair(s.weeks, "Settimane"), pair(s.blocks, "Blocchi"), pair(s.days, "Giorni")]) if (l) lines.push(esc(l));
-  if (s.slotsAdded.length) lines.push(`Fondamentali aggiunti: ${esc(s.slotsAdded.join(", "))}`);
-  if (s.slotsRemoved.length) lines.push(`Fondamentali rimossi: ${esc(s.slotsRemoved.join(", "))}`);
-  if (s.cellsChanged) lines.push(`Prescrizioni modificate: ${s.cellsChanged}`);
-  if (s.accessoriesAdded.length) lines.push(`Accessori aggiunti: ${esc(s.accessoriesAdded.join(", "))}`);
-  if (s.accessoriesRemoved.length) lines.push(`Accessori rimossi: ${esc(s.accessoriesRemoved.join(", "))}`);
+  if (s.mainAdded.length) lines.push(`Fondamentali nuovi: ${esc(s.mainAdded.join(", "))}`);
+  if (s.mainRemoved.length) lines.push(`Fondamentali spariti: ${esc(s.mainRemoved.join(", "))}`);
+  if (s.accAdded.length) lines.push(`Accessori nuovi: ${esc(s.accAdded.join(", "))}`);
+  if (s.accRemoved.length) lines.push(`Accessori spariti: ${esc(s.accRemoved.join(", "))}`);
+  if (s.itemsChanged) lines.push(`Esercizi modificati: ${s.itemsChanged}`);
+  if (s.itemsAdded) lines.push(`Esercizi aggiunti: ${s.itemsAdded}`);
+  if (s.itemsRemoved) lines.push(`Esercizi tolti: ${s.itemsRemoved}`);
 
   const ok = await dialog({
     title: `Aggiorna ${p.name}`,
@@ -213,7 +215,8 @@ async function showMore(ctx, id) {
 /** Which accessory groups get the accent color in the session view. */
 async function editPriorityGroups(ctx, p) {
   const model = currentRevision(p).model;
-  const groups = [...new Set(model.accessories.map((a) => a.group).filter(Boolean))];
+  const groups = [...new Set(model.weeks.flatMap((w) => w.days.flatMap((d) => d.items.map((i) => i.group))))]
+    .filter((g) => g && g !== "Fondamentale");
   const current = new Set(p.settings?.priorityGroups || []);
   const r = await dialog({
     title: "Gruppi prioritari",
