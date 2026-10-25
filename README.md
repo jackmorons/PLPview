@@ -11,6 +11,9 @@ with loads computed from your maxes, and includes training tools. One web codeba
 
 ## First time
 
+Install **Node.js LTS** (v22.12 or newer) from [nodejs.org](https://nodejs.org) first: it provides the `npm` command.
+Open a new terminal after installing, and check with `node -v`.
+
 ```sh
 npm install
 npm test        # parser + golden test against PL28
@@ -19,7 +22,7 @@ npm test        # parser + golden test against PL28
 ## The edit loop
 
 **iPhone**
-1. `npm run dev`: iterate in a desktop browser
+1. `npm run dev`: iterate in a desktop browser at the `http://localhost:…` address it prints (opening `index.html` directly shows a blank page)
 2. `npm run build && npx cap sync`: when done
 3. `npm run ios`, then ▶ Run in Xcode
 

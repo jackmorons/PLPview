@@ -57,7 +57,7 @@ These are part of v1 even though their payoff comes later. Don't skip them.
 - [ ] §7.8 offline on phones (milestone 4; in the browser: no external requests, fonts bundled)
 - [ ] Manual checklist (`docs/CHECKLIST.md`) on iPhone and Android
 
-**Milestones:** 1 scaffold ✅ (awaiting Jack's phone checkpoint) · 2 parser + golden test ✅ · 3 P0 UI in browser ✅ (awaiting Jack's checkpoint) · 4 P0 on phones · 5 P1 tools, then P2
+**Milestones:** 1 scaffold ✅ (awaiting Jack's phone checkpoint) · 2 parser + golden test ✅ · 3 P0 UI in browser ✅ (checkpoint passed 2026-10-25: Jack ran it in his browser) · 4 P0 on phones · 5 P1 tools, then P2
 
 **Decisions**
 - 2026-10-25: Capacitor, one codebase, built with Xcode and Android Studio.
