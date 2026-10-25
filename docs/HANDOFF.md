@@ -10,8 +10,8 @@ One web codebase (Vite, plain JS, no framework, no TypeScript) wrapped by **Capa
 and `android/` (Android Studio). UI and program text are **Italian**. Jack wants to understand the project:
 explaining as you build is part of the deliverable (`docs/PL-App-SPEC.md` §8).
 
-**Branch:** `milestone-1-2` on `jackmorons/plpview` (holds milestones 1–3 plus the coach format). Not merged into
-`main`, no PR. Last commit: `1523898`. Push access works (it was fixed during the session).
+**Branch:** everything is on `main` of `jackmorons/plpview` (Jack merged PRs #1 and #2 from `milestone-1-2`,
+then the handoff was merged too). Start new work on a new branch from `main`. Push access works.
 
 ## Where things are
 
@@ -110,7 +110,7 @@ visible there.
    from Files (P1), Android `content://` handling.
 5. **Minimum Xcode / Android Studio versions** in the build docs are unverified (capacitorjs.com was blocked);
    the docs say "latest" and point to `npx cap doctor`.
-6. Branch name `milestone-1-2` no longer matches its content; rename or merge when Jack decides.
+6. The old branch `milestone-1-2` is fully merged into `main`; it can be deleted when Jack wants.
 
 ## Next step
 
@@ -120,7 +120,8 @@ make import, saving, share/export and the checklist in `docs/CHECKLIST.md` work 
 
 ## Environment notes (cloud sessions)
 
-- Clones are shallow and fetch only `main`. To track the branch:
-  `git config --add remote.origin.fetch '+refs/heads/milestone-1-2:refs/remotes/origin/milestone-1-2' && git fetch origin milestone-1-2`.
+- Clones are shallow and fetch only `main`. To track another branch `<b>`:
+  `git config --add remote.origin.fetch '+refs/heads/<b>:refs/remotes/origin/<b>' && git fetch origin <b>`.
+- Jack merges PRs himself on GitHub: fetch `main` before pushing, it may have moved.
 - capacitorjs.com and cdn.sheetjs.com are unreachable; npm works.
 - Don't `pkill -f` with a pattern that also matches your own shell command (it kills the shell, exit 144).
