@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PL</string>
+    <string name="title_activity_main">PL</string>
+    <string name="package_name">it.jackmorons.plpviewapp</string>
+    <string name="custom_url_scheme">it.jackmorons.plpviewapp</string>
+</resources>
