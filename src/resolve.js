@@ -1,9 +1,21 @@
-// Program model + current maxes → what the session view shows: prescription strings, accessory sets,
-// plates per side. Called by the UI on every render, so edited maxes recalculate every load.
-// Pure: no DOM, no Capacitor, so Vitest runs it in Node.
-import { LIGHT_PHASES } from "./model.js";
+// Program model + current maxes → what the session view shows: strings, plates, banners.
+// Called by the UI on every render, so edited maxes recalculate every load. Pure: no DOM, no Capacitor.
 
 export const DEFAULT_PLATES = { bar: 20, collar: 0, plates: [25, 20, 15, 10, 5, 2.5, 1.25] };
+
+/** Week types: short label for the week button, and the one-line meaning shown as a banner. */
+export const WEEK_TYPE_INFO = {
+  normale: { label: "", title: "Normale", meaning: "" },
+  scarico: { label: "SCAR", title: "Scarico", meaning: "Scarico: volume e intensità nettamente ridotti." },
+  transizione: { label: "TRANS", title: "Transizione", meaning: "Transizione: settimana leggera tra due blocchi." },
+  ramping: { label: "RAMP", title: "Ramping", meaning: "Ramping: intensità in salita settimana dopo settimana, verso un carico pesante." },
+  intensificazione: { label: "INT", title: "Intensificazione", meaning: "Intensificazione: intensità alta, volume più basso." },
+  picco: { label: "PICCO", title: "Picco", meaning: "Picco: i singoli più pesanti del blocco." },
+  taper: { label: "TAPER", title: "Taper", meaning: "Taper: riduzione del carico prima della gara." },
+  entrata: { label: "ENTR", title: "Entrata", meaning: "Entrata: prova delle aperture." },
+  test: { label: "TEST", title: "Test", meaning: "Test: settimana di test dei massimali." },
+  gara: { label: "GARA", title: "Gara", meaning: "Gara: settimana di gara." },
+};
 
 /** Italian number format: 112.5 → "112,5". Rounded to 2 decimals, no trailing zeros (as the prototype). */
 export function fmt(n) {
@@ -18,27 +30,26 @@ export function mround(x, step) {
 /** {liftId: max} from the file's defaults, overridden by the maxes edited in the app. */
 export function maxesFor(model, edited = {}) {
   const out = {};
-  for (const l of model.lifts) out[l.id] = typeof edited[l.id] === "number" && edited[l.id] > 0 ? edited[l.id] : l.max;
+  for (const l of model.lifts) out[l.id] = typeof edited[l.id] === "number" && edited[l.id] > 0 ? edited[l.id] : l.defaultMax;
   return out;
 }
 
-/** The kg of one load token. */
 export function loadKg(token, maxes) {
   return mround(maxes[token.lift] * token.pct, token.step);
 }
 
-/** A prescription ({parts}) → the string shown, e.g. "4x5 + ist. 110kg". null stays null (hidden). */
-export function renderRx(rx, maxes) {
-  if (rx == null) return null;
-  return rx.parts.map((p) => (typeof p === "string" ? p : fmt(loadKg(p, maxes)))).join("");
+/** A template ({parts}) → the string shown, e.g. "4x5 + ist. 110kg". null stays null. */
+export function render(tpl, maxes) {
+  if (tpl == null) return null;
+  return tpl.parts.map((p) => (typeof p === "string" ? p : fmt(loadKg(p, maxes)))).join("");
 }
 
 /** Heaviest "<n>kg" in a display string (for the plate diagram), 0 if none. */
 export function topKg(s) {
-  const re = /(\d+(?:,\d+)?)kg/g;
+  const re = /(\d+(?:,\d+)?)\s?kg/g;
   let m;
   let best = 0;
-  while ((m = re.exec(s))) best = Math.max(best, parseFloat(m[1].replace(",", ".")));
+  while ((m = re.exec(s || ""))) best = Math.max(best, parseFloat(m[1].replace(",", ".")));
   return best;
 }
 
@@ -56,63 +67,71 @@ export function platesPerSide(kg, opts = DEFAULT_PLATES) {
   return { plates, rest: Math.max(0, Math.round(side * 100) / 100) };
 }
 
-export function isLightPhase(phase) {
-  return LIGHT_PHASES.includes(phase);
+export function week(model, n) {
+  return model.weeks.find((w) => w.n === n) || null;
 }
 
-/** "Squat stress · Panca var. · Trazioni", or "Ipertrofia / accessori" for a day with no main lifts. */
-export function daySubtitle(model, day) {
-  const names = model.slots.filter((s) => s.day === day).map((s) => s.name);
-  return names.length ? names.join(" · ") : "Ipertrofia / accessori";
+/** The day letters of a week, in the program's day order. */
+export function daysOf(model, n) {
+  const w = week(model, n);
+  return w ? model.days.filter((d) => w.days.some((x) => x.letter === d)) : [];
 }
 
-/** Every (week, day) in order, for prev/next and swipe. */
+/** "Squat stress · Panca var. · Trazioni" for that week's day, or "Ipertrofia / accessori" without main lifts. */
+export function daySubtitle(model, n, letter) {
+  const d = week(model, n)?.days.find((x) => x.letter === letter);
+  const names = (d?.items || []).filter((i) => i.kind === "main").map((i) => i.name);
+  return names.length ? names.join(" · ") : d ? "Ipertrofia / accessori" : "";
+}
+
+/** Every (week, day) that exists, in order, for prev/next and swipe. */
 export function sessionOrder(model) {
-  return model.weeks.flatMap((w) => model.days.map((d) => ({ week: w.number, day: d })));
+  return model.weeks.flatMap((w) => daysOf(model, w.n).map((d) => ({ week: w.n, day: d })));
+}
+
+/** Week number → block, or null (coach files without overall have no blocks). */
+export function blockOf(model, n) {
+  return (model.blocks || []).find((b) => n >= b.firstWeek && n <= b.lastWeek) || null;
 }
 
 /**
- * Everything the session view needs for one week and day.
- * Main lifts with an empty cell are hidden; accessories get one set less in light weeks and
- * disappear at 0; volume-only rows (intensity "vedi overall") are not listed.
+ * Everything the session view needs for one week and day. null if that day isn't in that week.
+ * The day's first note becomes its banner (and isn't repeated under its item); other notes stay with their item.
  */
-export function session(model, weekNumber, day, maxes) {
-  const wi = model.weeks.findIndex((w) => w.number === weekNumber);
-  const week = model.weeks[wi];
-  const light = isLightPhase(week.phase);
+export function session(model, n, letter, maxes) {
+  const w = week(model, n);
+  const d = w?.days.find((x) => x.letter === letter);
+  if (!d) return null;
 
-  const mains = [];
-  model.slots.forEach((slot, si) => {
-    if (slot.day !== day) return;
-    const rx = model.prescriptions[wi][si];
-    if (rx == null) return;
-    const text = renderRx(rx, maxes);
-    mains.push({
-      slot: si,
-      name: slot.name,
-      variant: model.blocks[week.block].variants[si],
+  let banner = null;
+  const items = d.items.map((it) => {
+    const text = render(it.prescription, maxes);
+    const load = render(it.load, maxes);
+    let note = render(it.note, maxes);
+    if (note && banner == null) { banner = note; note = null; }
+    return {
+      kind: it.kind,
+      name: it.name,
+      instructions: it.instructions,
+      group: it.group,
       text,
-      kg: topKg(text),
+      load,
+      note,
+      kg: topKg(text) || topKg(load),
       // Pull-up loads are added to bodyweight: no barbell plates.
-      plates: !slot.name.startsWith("Trazioni"),
-    });
+      plates: it.kind === "main" && !it.name.trim().toLowerCase().startsWith("trazioni"),
+    };
   });
 
-  const accessories = model.accessories
-    .filter((a) => a.day === day && !a.volumeOnly)
-    .map((a) => ({ ...a, setsThisWeek: a.sets[week.block] - (light ? 1 : 0) }))
-    .filter((a) => a.setsThisWeek > 0);
-
   return {
-    week: week.number,
-    day,
-    block: week.block,
-    blockName: model.blocks[week.block].name,
-    phase: week.phase,
-    light,
-    mains,
-    accessories,
-    // Spec §4: the "day E" reminder applies to any day with accessories but no main lifts.
-    accessoryOnly: model.slots.every((s) => s.day !== day) && model.accessories.some((a) => a.day === day),
+    week: w.n,
+    day: letter,
+    type: w.type,
+    typeInfo: WEEK_TYPE_INFO[w.type] || WEEK_TYPE_INFO.normale,
+    dates: w.dates,
+    blockName: blockOf(model, n)?.name || null,
+    banner,
+    mains: items.filter((i) => i.kind === "main"),
+    accessories: items.filter((i) => i.kind === "acc"),
   };
 }

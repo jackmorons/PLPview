@@ -164,7 +164,7 @@ Sheet names must match exactly (case-sensitive).
   - Columns end at the first empty header.
 - **Rows 2 onwards** come in two kinds:
   - **Block row:** A is empty and B is not empty. B holds the block name (e.g. `Blocco 1 – Accumulo`). Cells C onwards hold that block's **variant** for each column (e.g. `discesa 4''`, `no var.`). The first row after the headers must be a block row.
-  - **Week row:** A is an integer. Weeks must be consecutive and start at 1 across the whole sheet. B holds the phase: empty (normal week), `transizione`, `entrata` or `TEST`. Anything else is a warning, not an error, and the text is shown as written. Cells C onwards hold the prescriptions.
+  - **Week row:** A is an integer. Weeks must be consecutive and start at 1 across the whole sheet. B holds the **week type** from the fixed list in `FORMAT-COACH.md` §9 (`normale`, `scarico`, `transizione`, `ramping`, `intensificazione`, `picco`, `taper`, `entrata`, `test`, `gara`; empty = `normale`). Any other value is an error. Cells C onwards hold the prescriptions.
 - Blocks may differ in length. Block count and weeks per block come from the file. **Nothing is hard-coded to 20 weeks, 4 blocks or 5 days.**
 - An empty prescription cell means that slot isn't trained that week. Hide it.
 - **Prescription cells** are one of two kinds:
@@ -195,7 +195,7 @@ Sheet names must match exactly (case-sensitive).
 - `Giorno` must be a single capital letter. The **set of days** is the union of the day letters from the `overall` headers and from this column. That's how PL28 gets day E, which has no main lifts.
 - Each `Serie Bn` value must be an integer of 0 or more; 0 means not done in that block.
 - **Volume-only rows:** a row whose `Intensità` is `vedi overall` counts toward volume but isn't listed with the accessories. In PL28 this is weighted pull-ups, which already appear in `overall`.
-- **Sets in light weeks:** in any week whose phase is `transizione` or `TEST`, show `sets − 1` and add a banner saying to keep RIR +1. Hide the exercise if the result is 0. Display format: `${sets}×${Rep}` plus the intensity, as the prototype does.
+- **Sets in light weeks:** in any week whose type is `transizione`, `scarico` or `test`, show `sets − 1` and add a banner saying to keep RIR +1. Hide the exercise if the result is 0. Display format: `${sets}×${Rep}` plus the intensity, as the prototype does.
 
 ### 3.5 Internal program format (JSON)
 

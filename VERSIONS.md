@@ -9,7 +9,7 @@ Status values: `planned` → `specified` → `in progress` → `released` (or `d
 
 | Version | Goal | Status | Spec | Released |
 |---|---|---|---|---|
-| v1 | Import a strict-format xlsx and view it; edit maxes; training tools | in progress (milestones 1–2 done) | `PL-App-SPEC.md` | — |
+| v1 | Import a strict-format xlsx and view it; edit maxes; training tools | in progress (milestones 1–3 done) | `PL-App-SPEC.md` | — |
 | v2 | The app includes the xlsx template, to download, edit and import; programs can be exported back to xlsx | planned | this file, §v2 | — |
 | v3 | Create and edit programs directly in the app | planned | this file, §v3 | — |
 
@@ -45,7 +45,7 @@ These are part of v1 even though their payoff comes later. Don't skip them.
 - [x] `docs/PROGRAM-SCHEMA.md` + `schemaVersion: 1` on every saved program (schema written; saving arrives in milestone 4)
 - [x] `validateProgram()` kept separate from the xlsx parser (`src/model.js`)
 - [x] `migrate()` in place, even if it does nothing in v1
-- [ ] Multiple programs with one active; "Aggiorna da xlsx" with a change summary; revision history (last 5) with restore; program id is a UUID, not a file hash
+- [x] Multiple programs with one active; "Aggiorna da xlsx" with a change summary; revision history (last 5) with restore; program id is a UUID, not a file hash
 
 **Acceptance:** §7 of the spec, all on both platforms.
 - [x] §7.1 golden test (automated: 200/200 cells match the prototype, 97/97 match Excel's cached values)
@@ -53,20 +53,48 @@ These are part of v1 even though their payoff comes later. Don't skip them.
 - [x] §7.3 accessories (automated)
 - [x] §7.4 days (automated)
 - [x] §7.5 rejections (automated: PL27, broken header, non-integer week, missing Massimali row, `=B3*2`)
-- [ ] §7.6 persistence · [ ] §7.7 programs and revisions · [ ] §7.8 offline (milestones 3–4)
+- [x] §7.6 persistence, §7.7 programs and revisions (automated against an in-memory store; browser run checked with Playwright) · [ ] on phones (milestone 4)
+- [ ] §7.8 offline on phones (milestone 4; in the browser: no external requests, fonts bundled)
 - [ ] Manual checklist (`docs/CHECKLIST.md`) on iPhone and Android
 
-**Milestones:** 1 scaffold ✅ (awaiting Jack's phone checkpoint) · 2 parser + golden test ✅ · 3 P0 UI in browser · 4 P0 on phones · 5 P1 tools, then P2
+**Acceptance, coach format** (`FORMAT-COACH-SPEC.md` §7, §9; automated in `tests/coach.test.js` and `tests/parser.test.js`):
+- [x] §7.1 golden: `PL28_coach.xlsx` imports with 0 errors, 20 weeks, days A–E, spot checks
+- [x] §7.2 `PL28.xlsx` and `PL28_coach.xlsx` give the same sessions (see decisions for what isn't compared)
+- [x] §7.3 squat 200 → week 1 A squat `115kg` through log → overall → Massimali
+- [x] §7.4 changing week 7 C changes only week 7 C
+- [x] §7.5 `PL27.xlsx` rejected with exactly the four week-16 duplicates, nothing about G/H
+- [x] §7.6 PL27 without the second week-16 run imports: mains by name, no Massimali (max editor hidden), 5 blocks from overall
+- [x] §7.7 errors: non-integer week, `=B3*2`, `=overall!Z99` empty, two `training log` sheets, missing `Alzata`
+- [x] §9 week types: unknown type rejected (both formats), empty → `normale`, both templates give the same types, `scarico` in PL28 format removes a set
+
+**Milestones:** 1 scaffold ✅ (awaiting Jack's phone checkpoint) · 2 parser + golden test ✅ · 3 P0 UI in browser ✅ (checkpoint passed 2026-10-25: Jack ran it in his browser) · 4 P0 on phones · 5 P1 tools, then P2
 
 **Decisions**
 - 2026-10-25: Capacitor, one codebase, built with Xcode and Android Studio.
 - 2026-10-25: No session logging; Jack uses an external logger.
+- 2026-10-25: Added the coach format (PL27 layout, one row per exercise per session; spec in `FORMAT-COACH.md`). Program schema → v2 (explicit sessions, so accessories, sets and reps can change every week). The PL28 format is kept and converted on import.
+- 2026-10-25: Week-type flag, from a fixed list, in both formats (`FORMAT-COACH.md` §9). It's shown as a badge, pill and banner. It changes sets only in the PL28 format, and only for `transizione`/`scarico`/`test`.
+- 2026-10-25: Where the coach spec (`docs/FORMAT-COACH-SPEC.md`) contradicted itself or the fixtures, the parser does this (listed in `docs/FORMAT-COACH.md`):
+  - format detection: `accessori` wins over `training log`, because `PL28.xlsx` contains both sheets
+  - load placeholders use full lift names (`{Squat .57}`) in both formats; `PL-App-SPEC.md` §3.3's letter rule is superseded
+  - the PL28 ↔ coach "same sessions" test doesn't compare main-lift names (`Squat stress` vs `squat`) and treats an intensity of `—` as empty
+  - blocks don't store variants (PL27 has two columns named `Panca rig.`); the per-session `Istruzioni` carry them
+  - accessories display as `3x8-10` (as written in the coach file), superseding `PL-App-SPEC.md` §3.4's `3×8-10`
+  - the day's first note is the session banner and isn't repeated under its exercise
+  - PL28-format files get their old reminders ("Fai E solo se…", "Accessori già scalati di 1 serie: tieni RIR +1.") as the day's first note
+- 2026-10-25: Week buttons always use 5 columns per block row, so blocks of different lengths line up (PL27 has blocks of 6, 3, 5, 2 and 4 weeks).
 - 2026-10-25: The app holds several programs and Jack picks the active one. Updating a program from a new xlsx keeps its identity, maxes and position; old revisions are kept and can be restored.
 - 2026-10-25: Bundle id `it.jackmorons.plpviewapp` (both platforms). App name stays "PL".
 - 2026-10-25: **Format change (approved by Jack):** text load placeholders use the full lift name, `{Squat .57}`, not a first letter. The spec's letter rule could not work for PL28: Squat and Stacco share "S".
 - 2026-10-25: Capacitor 8.5.3 (current stable), iOS via Swift Package Manager (no CocoaPods). Minimums: iOS 15, Android 7 (API 24); target API 36; JDK 21.
 - 2026-10-25: SheetJS pinned at 0.18.5, the last version published on npm. It has two known advisories (prototype pollution, ReDoS) triggered by malicious files; the app only opens Jack's own files, so the risk is low. Fixed versions (0.20.x) are only on cdn.sheetjs.com, which this build environment can't reach. **To do:** switch `package.json` to `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` from a normal network and re-run the tests.
 - 2026-10-25: A completely empty row ends `overall` (the spec didn't say); documented in FORMAT.md.
+- 2026-10-25: Light-week buttons (dashed, amber) = phase `transizione` or `TEST`, the same rule as the accessory sets. The prototype didn't style week 20.
+- 2026-10-25: Phase banners are generic (no PL28-specific "giorno D ~92%"). The accessory-only-day reminder names the days that have a slot starting with "Stacco" (PL28: "Fai E solo se domani non c’è B o D"), or says "una sessione pesante" if there are none.
+- 2026-10-25: Maxes are typed in a text field with a decimal keypad (accepts `112,5` and `112.5`): iOS number fields reject the comma.
+- 2026-10-25: On phones the accessories are stacked rows instead of a 4-column table, which didn't fit at 390 px.
+- 2026-10-25: Week buttons on a phone are 44 px tall but about 38 px wide (two blocks side by side, as in the prototype). One block per row would meet 44 × 44 but doubles the selector's height.
+- 2026-10-25: The example file is generated by a script with SheetJS (formulas with correct cached values, no cell styling). v2's template will need ExcelJS for dropdowns and yellow input cells.
 - 2026-10-25: Day subtitles are built from slot names ("Squat stress · Panca var. · Trazioni"), per the spec, instead of the prototype's hand-written ones.
 
 ---
@@ -83,14 +111,16 @@ These are part of v1 even though their payoff comes later. Don't skip them.
    - `meta` sheet (`formatVersion`)
    - `note` sheet with filling instructions and the notation
    - `Massimali`, `overall` and `accessori` with headers, one example block, one example week and example accessory rows (clearly marked as examples)
-   - dropdowns: `Giorno` letters; `fase` = empty / `transizione` / `entrata` / `TEST`
+   - dropdowns: `Giorno` letters; week type (`fase` / `tipo`) = the fixed list in `FORMAT-COACH.md`
    - a header comment on prescription cells showing the formula grammar, e.g. `="4x5 "&MROUND(Massimali!$B$3*0.57,2.5)&"kg"`
    - yellow fill on the cells that are meant to be edited
 3. **Download from the app.**
+   - Offer **both** templates: `formato PL28` and `formato coach`.
    - "Scarica template" in the Programs tab: write to the app's cache, then open the share sheet (Files, AirDrop, Drive, email).
 4. **Export a program as xlsx.**
    - "Esporta come xlsx" for any saved program: model → xlsx in the same format, with real `MROUND` formulas referencing `Massimali`.
    - Programs exported this way can be edited in Excel and re-imported.
+   - Let the user choose the export format (PL28 or coach). A coach-format program can only be exported as coach format, because its accessories can change every week.
 5. **Check without importing.** "Verifica file" runs the parser and shows the errors or "OK" without saving anything.
 
 **Out of scope:** editing programs in the app.
@@ -160,6 +190,9 @@ These are part of v1 even though their payoff comes later. Don't skip them.
 Newest first. One entry per release or significant milestone.
 
 ### Unreleased
+- 2026-10-25: **Coach format + week types.** New parser for the coach format (`src/parse-coach.js`), PL28 parser split (`src/parse-pl28.js`, `src/parse-common.js`), program schema 2 with explicit sessions and `migrate()` from schema 1 (programs saved by milestone 3 are upgraded on load). Week types with badges, pills and banners; max editor hidden for files without Massimali; change summary works on sessions. Docs: `FORMAT-COACH.md`, `PROGRAM-SCHEMA.md` (v2), `FORMAT.md` updated. 72 tests.
+- 2026-10-25: Added `examples/example.xlsx` (10 weeks, 2 blocks, 3 days, squat / bench / deadlift, no accessories), generated by `scripts/make-example.js` (`npm run example`) and checked by `tests/example.test.js`. The empty state now points to example.xlsx instead of PL28.xlsx.
+- 2026-10-25: **Milestone 3.** P0 viewer in the browser: Sessione (maxes saved as you type, "Ripristina dal file", week/day selectors, session sheet with banners, plates, priority groups, prev/next, swipe, arrow keys), Note, Programmi (import, già importato, Aggiorna / Importa come nuovo, change summary, revisions with restore and export, rename, duplicate, priority groups, delete with in-app confirmation), import errors screen (copyable), light/dark theme, bundled fonts. New: `src/programs.js`, `src/library.js`, `src/storage.js`, `src/ui/*`. 46 tests.
 - 2026-10-25: **Milestone 2.** `src/parser.js` (xlsx → model, strict, Italian errors with cell refs), `src/model.js` (`validateProgram`, `migrate`), `src/resolve.js` (loads, plates, session view data). 36 Vitest tests including the golden test against the prototype. `docs/FORMAT.md`, `docs/PROGRAM-SCHEMA.md`.
 - 2026-10-25: **Milestone 1.** Vite + Capacitor 8 scaffold, `ios/` and `android/` shells, all plugins installed and pinned, "hello" screen. Docs: HOW-IT-WORKS, BUILD-IOS, BUILD-ANDROID, CHECKLIST, README edit loop.
 - 2026-10-25: Roadmap created. v1 specified in `PL-App-SPEC.md`; v2 and v3 planned.
