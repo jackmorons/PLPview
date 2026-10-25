@@ -6,7 +6,7 @@ with loads computed from your maxes, and includes training tools. One web codeba
 
 - What it should do: [`docs/PL-App-SPEC.md`](docs/PL-App-SPEC.md) · roadmap and changelog: [`VERSIONS.md`](VERSIONS.md)
 - How it works, for humans: [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md)
-- How to write a program file: [`docs/FORMAT.md`](docs/FORMAT.md) · the internal model: [`docs/PROGRAM-SCHEMA.md`](docs/PROGRAM-SCHEMA.md)
+- How to write a program file: [`docs/FORMAT.md`](docs/FORMAT.md), starting from [`examples/example.xlsx`](examples/example.xlsx) · the internal model: [`docs/PROGRAM-SCHEMA.md`](docs/PROGRAM-SCHEMA.md)
 - Build: [`docs/BUILD-IOS.md`](docs/BUILD-IOS.md) · [`docs/BUILD-ANDROID.md`](docs/BUILD-ANDROID.md) · phone checklist: [`docs/CHECKLIST.md`](docs/CHECKLIST.md)
 
 ## First time

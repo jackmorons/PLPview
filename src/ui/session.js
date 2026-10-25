@@ -208,7 +208,7 @@ function renderEmpty(el, ctx) {
     <div class="wrap">
       <div class="card empty-state">
         <h2>Nessun programma</h2>
-        <p class="muted">Importa un file .xlsx nel formato PL (come PL28.xlsx). I carichi vengono calcolati dai massimali del file, che puoi modificare nell’app.</p>
+        <p class="muted">Importa un file .xlsx nel formato PL (come example.xlsx). I carichi vengono calcolati dai massimali del file, che puoi modificare nell’app.</p>
         <button class="btn primary" data-import>Importa programma</button>
       </div>
     </div>`;
