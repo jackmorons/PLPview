@@ -29,21 +29,27 @@ dist/                              ← generated, never edit
 | `src/model.js` | the model's rules: `validateProgram()`, `migrate()` | no (pure) |
 | `src/resolve.js` | model + maxes → strings, accessory sets, plates | no (pure) |
 | `src/tools.js` | RPE, back-off, rep counter (milestone 5) | no (pure) |
-| `src/storage.js` | save/load JSON: phone files on device, localStorage in the browser (milestone 4) | **yes** |
-| `src/native.js` | file picker, haptics, keep-awake, share sheet (milestone 4) | **yes** |
-| `src/ui/*` | draws the screens (milestone 3) | no |
-| `src/main.js` | starts the app, switches tabs | no |
+| `src/programs.js` | program rules: revisions (last 5), restore, what carries over on update, change summary | no (pure) |
+| `src/library.js` | the app's data: programs, active one, edited maxes, last week/day; saves through storage.js | no |
+| `src/storage.js` | save/load files: phone storage on device, localStorage in the browser | **yes** |
+| `src/native.js` | file picker, share sheet, clipboard (haptics, keep-awake in milestone 5) | **yes** |
+| `src/ui/session.js` | Sessione tab: maxes, week/day selectors, the session sheet, swipe | no |
+| `src/ui/programs.js` | Programmi tab, plus the import and "Aggiorna da xlsx" flows | no |
+| `src/ui/note.js`, `ui/tools.js` | Note tab; Strumenti tab (placeholder until milestone 5) | no |
+| `src/ui/errors.js`, `ui/dom.js` | import errors screen; in-app dialogs and HTML escaping | no |
+| `src/main.js` | starts the app, loads the saved data, draws the tab bar, switches tabs | no |
 
 "Pure" means: input in, output out, no screen, no phone. That's why `npm test` can check them on any
 computer in a couple of seconds.
 
 ## One action, end to end: importing PL28
 
-Steps marked *(milestone n)* don't exist yet; this section grows as they're built.
-
-1. You tap **Importa programma**. *(milestone 3, `ui/programs.js`)*
-2. `native.js → pickFile()` opens the phone's file picker, limited to .xlsx, and returns the file's bytes. *(milestone 4)*
-3. The bytes go to `parser.js → parseXlsx(bytes)`:
+1. You tap **Importa programma** → `ui/programs.js → importProgram()`.
+2. `native.js → pickFile()` opens the file picker (on the phone the system picker, limited to .xlsx;
+   in the browser an `<input type=file>`) and returns `{name, bytes}`.
+3. `library.js → analyze(file)` computes the file's SHA-256. If a stored revision has the same hash,
+   the app says **già importato** and offers to open that program. Otherwise it calls
+   `parser.js → parseXlsx(bytes)`:
    - SheetJS reads the workbook, keeping each cell's formula (`cell.f`) and Excel's cached value (`cell.v`).
    - `parseMassimali()` finds the lifts and remembers which row each one is on.
    - `parseOverall()` reads blocks and weeks. Each formula goes through `parseFormula()`, which accepts only
@@ -52,11 +58,18 @@ Steps marked *(milestone n)* don't exist yet; this section grows as they're buil
    - `parseAccessori()` reads the accessories and their sets per block.
    - `model.js → validateProgram()` checks the rules that don't depend on xlsx (weeks consecutive, etc.).
    - Result: `{ok: true, model}` or `{ok: false, errors: [{ref: "overall!D7", msg: "…"}]}`.
-4. If it failed, the errors screen lists every problem. Nothing is saved. *(milestone 3)*
-5. If it worked, `storage.js` saves the model as `programs/<id>.json`, with a new random id. *(milestone 4)*
-6. `ui/session.js` draws week 1 day A. For each prescription it calls `resolve.js → renderRx(rx, maxes)`:
-   text parts as written, each load token as `MROUND(max × pct, step)`, so editing a max recalculates every
-   load immediately. *(milestone 3)*
+4. If it failed, `ui/errors.js → showImportErrors()` lists every problem, copyable. Nothing is saved.
+5. If a program with the same name exists, the app asks **Aggiorna PL28** / **Importa come nuovo programma**.
+6. `library.js → create()` gives the program a random id and, through `storage.js`, writes
+   `programs/<id>.json` (the model inside its first revision) and `files/<revisionId>.xlsx` (the original bytes).
+7. `main.js → ctx.go("session")` → `ui/session.js → renderSession()` draws week 1 day A. For each
+   prescription `resolve.js → session()` calls `renderRx(rx, maxes)`: text parts as written, each load token
+   as `MROUND(max × pct, step)`. Editing a max calls `library.js → setMax()`, which saves `maxes/<id>.json`,
+   and redraws the sheet, so every load recalculates as you type.
+
+**Updating** ("Aggiorna da xlsx…") follows the same steps 2–4, then `programs.js → changeSummary()` lists what
+changes, and on confirm `library.js → update()` adds a revision (keeping the last 5), keeps your edited maxes
+for lifts that still exist (`carryMaxes`) and pulls the last week/day back inside the new length (`clampPosition`).
 
 ## Tests
 
@@ -65,6 +78,7 @@ Steps marked *(milestone n)* don't exist yet; this section grows as they're buil
   prototype (`fixtures/PL28_standalone.html`), and the same value Excel cached in the file.
 - `tests/parser.test.js`: PL28's structure, the formula grammar, and every rejection case from the spec.
 - `tests/resolve.test.js`: plates, rounding, session order, model rules.
+- `tests/library.test.js`: saving and reloading, several programs, update with change summary, already imported, restore, delete.
 
 ## Glossary
 

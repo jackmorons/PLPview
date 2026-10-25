@@ -5,7 +5,7 @@ Tick each box on both platforms. Items marked *(m3)*, *(m4)* need that milestone
 
 | # | Check | iPhone | Android |
 |---|---|---|---|
-| 0 | Milestone 1: the "hello" build opens and shows the right platform | ☐ | ☐ |
+| 0 | Milestone 1: the app opens on the phone | ☐ | ☐ |
 | 1 | *(m4)* Import `PL28.xlsx` from Files / Drive: week 1 day A shows `4x5 + ist. 110kg` | ☐ | ☐ |
 | 2 | *(m3)* Set squat to 200: week 1 Squat stress shows `4x5 + ist. 115kg` | ☐ | ☐ |
 | 3 | *(m3)* Week 5 day A: Affondi `2×8-10`, banner about RIR +1 | ☐ | ☐ |

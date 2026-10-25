@@ -35,3 +35,32 @@ export function parseEditedPL28(edit) {
   edit(wb);
   return parseXlsx(XLSX.write(wb, { type: "array", bookType: "xlsx" }));
 }
+
+/** PL28 bytes after `edit(wb)`, as a file the library can import. */
+export function editedPL28Bytes(edit) {
+  const wb = XLSX.read(fixture("PL28.xlsx"), { type: "buffer", cellFormula: true });
+  edit(wb);
+  return new Uint8Array(XLSX.write(wb, { type: "array", bookType: "xlsx" }));
+}
+
+/** Removes a whole row's cells from a sheet and shrinks its range (for "one week removed"). */
+export function dropLastRow(ws) {
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  for (let c = range.s.c; c <= range.e.c; c++) delete ws[XLSX.utils.encode_cell({ r: range.e.r, c })];
+  range.e.r--;
+  ws["!ref"] = XLSX.utils.encode_range(range);
+}
+
+/** In-memory storage with the same interface as src/storage.js. */
+export function memoryStore() {
+  const m = new Map();
+  return {
+    data: m,
+    readJSON: async (k) => (m.has(k) ? JSON.parse(m.get(k)) : null),
+    writeJSON: async (k, v) => { m.set(k, JSON.stringify(v)); },
+    readBytes: async (k) => m.get(k) ?? null,
+    writeBytes: async (k, b) => { m.set(k, new Uint8Array(b)); },
+    remove: async (k) => { m.delete(k); },
+    list: async (folder) => [...m.keys()].filter((k) => k.startsWith(folder + "/")).map((k) => k.slice(folder.length + 1)),
+  };
+}
