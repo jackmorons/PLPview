@@ -85,6 +85,9 @@ The layout shared with the PL28 format (`FORMAT.md` → `overall`), headers igno
 - Other headed columns are lift columns; empty columns between them are allowed. Headers are free text here
   (`Squat stress.`, or `Squat stress (A)` as in PL28): the day comes from the log.
 - Empty rows are skipped; **two empty rows in a row end the sheet**.
+- **Row 2 (optional): lift types**, as in `FORMAT.md`: `A2 = tipo alzata`, a free-text type under each lift column.
+  A log row whose `Serie x rep` (E) points at a cell of that column (`=overall!D5`) gets the column's type; a row
+  with its own text in E gets none.
 - **Variant row**: A empty, and a block name in B or some text in a lift column. It starts a new block, named by B
   (`Accumulo`), or `Blocco 1`, `Blocco 2`, … when B is empty. Files exported by the app always write the name.
 - **Week row**: A = week number; B = optional dates; `tipo`; lift cells as in the log (text, load formula, reference).
@@ -127,6 +130,8 @@ weeks get one accessory set less and RIR +1.
    exported in this format keeps names like `Blocco 1 – Accumulo`.
 7. **Same reading rules as PL28** (2026-10-26, approved by Jack): sheet names ignore capitals, days are alphabetical
    (the brief said "order of first appearance in week 1"), and in `overall` two empty rows end the sheet.
+8. **Lift types** (2026-10-26, approved by Jack): the optional `tipo alzata` row in `overall`, read through the log's
+   references. Not in the brief.
 
 ## Templates and exports
 
@@ -134,4 +139,5 @@ The app writes files in this format ("Scarica template", "Esporta come xlsx", `n
 `note`, `Massimali` (file maxes from row 3), `overall` (`week | giorno | tipo | one column per main lift "Nome (giorno)"`,
 a named variant row per block), `training log` (main rows point at `overall` with `=overall!D3`, a blank row
 between days, `Gruppo` always present) and `meta` (`formatVersion = 2`). They follow every rule above, so they import
-like any other file. The `Massimali`, `overall` and `note` sheets are written exactly as in a PL28 export.
+like any other file. The `Massimali`, `overall` and `note` sheets are written as in a PL28 export: `tipo alzata` row,
+lift columns grouped by lift.

@@ -51,8 +51,17 @@ this section.
 - `A1 = week`, `B1 = giorno`, and a column headed `tipo` (in templates and exports: `C1`).
 - Every other headed column is a **slot**: `Name (X)`, where X is the day letter. Example: `Squat stress (A)`.
   Empty columns are separators and are skipped.
+- **Column order** is free, but within a day it is the order the lifts are shown in. The app writes them grouped by
+  lift (Squat A, Squat C, Squat D, then Panca…, in `Massimali` order, lifts not in `Massimali` last), unless that would
+  change a day's order; then it keeps them grouped by day.
 
-**Rows 2 onwards**, two kinds:
+**Row 2 (optional): lift types**
+- `A2 = tipo alzata` (any capitals), and under each slot its type, free text: `stressante`, `rigenerante`, `tecnica`,
+  `stimolo`, `volume`… (templates offer these in a dropdown; any text is accepted). Empty = no type.
+- Every week of that slot gets the type; the app shows it as a tag next to the lift's name.
+- Without this row (as in `fixtures/PL28.xlsx`) the lifts have no type.
+
+**Then, from row 2 (row 3 after the lift types)**, two kinds of row:
 
 | Row | A | B (`giorno`) | `tipo` | Slot columns |
 |---|---|---|---|---|

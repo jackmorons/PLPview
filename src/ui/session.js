@@ -122,7 +122,7 @@ export function renderSession(el, ctx) {
 
     const lifts = s.mains.map((m) => `
       <div class="lift">
-        <div><div class="nm">${esc(m.name)}</div>${m.instructions ? `<div class="var">${esc(m.instructions)}</div>` : ""}</div>
+        <div><div class="nm">${esc(m.name)}${m.liftType ? ` <span class="tag lt">${esc(m.liftType)}</span>` : ""}</div>${m.instructions ? `<div class="var">${esc(m.instructions)}</div>` : ""}</div>
         <div><div class="rx">${esc(m.text ?? "")}${m.load ? ` <span class="ld">${esc(m.load)}</span>` : ""}</div>
           ${m.note ? `<div class="inote">${esc(m.note)}</div>` : ""}</div>
         <div>${m.plates && m.kg ? platesHtml(m.kg) : ""}</div>

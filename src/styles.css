@@ -127,6 +127,7 @@ input,button{min-height:44px}
 .lift:first-of-type{border-top:0}
 .lift .nm{font:700 22px/1.05 var(--f-display);text-transform:uppercase;overflow-wrap:anywhere}
 .lift .var{font-size:12px;color:var(--muted);margin-top:2px}
+.lift .nm .lt{display:inline-block;vertical-align:middle;font:500 11px/1.4 var(--f-body);text-transform:none;letter-spacing:0}
 .rx{font:600 19px/1.35 var(--f-mono);font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere}
 .rx .ld{color:var(--muted);font-weight:500}
 .inote{font-size:12px;color:var(--muted);margin-top:4px;font-style:italic}

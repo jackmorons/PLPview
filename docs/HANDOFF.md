@@ -12,7 +12,7 @@ explaining as you build is part of the deliverable (`docs/PL-App-SPEC.md` §8).
 
 **Branches:** `main` of `jackmorons/plpview` has milestones 1–3 and the coach format. Waiting for Jack to merge, each
 built on the previous one: `sheetjs-0.20.3` (SheetJS fix) → `v2-xlsx` (templates + export) → `formats-unified`
-(shared `overall` layout and reading rules). Start new work
+(shared `overall` layout and reading rules) → `lift-types` (`tipo alzata` row, schema 3). Start new work
 on a new branch from `main` once they're in. On Jack's Mac, git has no GitHub login set up and `gh` isn't installed:
 Jack pushes and opens PRs himself.
 
@@ -23,7 +23,7 @@ Jack pushes and opens PRs himself.
 | Main spec (build brief, acceptance tests, working rules) | `docs/PL-App-SPEC.md` |
 | Coach-format brief as Jack wrote it | `docs/FORMAT-COACH-SPEC.md` |
 | **Contracts the parsers implement** | `docs/FORMAT.md` (PL28 format), `docs/FORMAT-COACH.md` (coach format + week types + where it differs from the brief) |
-| Program model (schema 2) | `docs/PROGRAM-SCHEMA.md` |
+| Program model (schema 3) | `docs/PROGRAM-SCHEMA.md` |
 | Roadmap, decisions, changelog | `VERSIONS.md` (update at every milestone and every change of plan) |
 | For Jack | `docs/HOW-IT-WORKS.md`, `docs/BUILD-IOS.md`, `docs/BUILD-ANDROID.md`, `docs/CHECKLIST.md`, `README.md` |
 | Fixtures | `fixtures/PL28.xlsx`, `fixtures/PL28_coach.xlsx`, `fixtures/PL27.xlsx`, `fixtures/PL28_standalone.html` (prototype) |
@@ -38,7 +38,7 @@ Jack pushes and opens PRs himself.
 | `parse-pl28.js` | PL28 format → schema-1 shape (`readV1`) → `expandV1` → schema 2 | yes |
 | `parse-coach.js` | coach format (`training log` + optional `overall`, `Massimali`) → schema 2 | yes |
 | `parse-common.js` | cell helpers, formula grammar, `{Squat .57}` placeholders, Massimali, case-insensitive sheets, `scanOverall()` (the `overall` layout both formats share) | yes |
-| `model.js` | `SCHEMA_VERSION = 2`, week types, `expandV1`, `migrate`, `validateProgram` | yes |
+| `model.js` | `SCHEMA_VERSION = 3`, week types, `expandV1`, `migrate`, `validateProgram` | yes |
 | `resolve.js` | model + maxes → display strings, plates, `session()`, week-type labels | yes |
 | `programs.js` | revisions (last 5), restore, carry-over of maxes/position, change summary | yes |
 | `library.js` | the app's data (programs, active, maxes, positions) over a storage adapter | yes (adapter injected) |
@@ -55,7 +55,7 @@ Jack pushes and opens PRs himself.
 
 ```sh
 npm install
-npm test             # Vitest, 111 tests, ~3 s
+npm test             # Vitest, 121 tests, ~3 s
 npm run dev          # browser at http://localhost:5173 (opening index.html directly shows a blank page)
 npm run build && npx cap sync
 npm run example      # regenerate examples/example.xlsx
@@ -88,7 +88,8 @@ downloads by patching `HTMLAnchorElement.prototype.click`. Remove the test progr
 - Load placeholders use the **full lift name**: `{Squat .57}`. The letter rule in `PL-App-SPEC.md` §3.3 is superseded.
 - **The two formats share `Massimali`, `overall` (`week | giorno | tipo | lifts`), `note`, `meta` and every reading
   rule** (2026-10-26); they differ only in `accessori` vs `training log` and what follows from it. Files the app writes
-  are `formatVersion = 2`. PL28's older `week | fase | …` layout is still read.
+  are `formatVersion = 2`. PL28's older `week | fase | …` layout is still read. Optional row 2 `tipo alzata` gives each
+  lift column a free-text type (`liftType`, schema 3), shown as a tag. Exports group lift columns by lift.
 - Format detection: an `accessori` sheet → PL28 format (even if a `training log` sheet exists, as in `PL28.xlsx`);
   otherwise one `training log…` sheet → coach format.
 - Week types: fixed list (`normale, scarico, transizione, ramping, intensificazione, picco, taper, entrata, test, gara`),
@@ -136,7 +137,7 @@ downloads by patching `HTMLAnchorElement.prototype.click`. Remove the test progr
 
 ## Next step
 
-Jack merges `sheetjs-0.20.3`, `v2-xlsx` and `formats-unified` (in that order), tries a template and an export in Excel/Numbers on his Mac
+Jack merges `sheetjs-0.20.3`, `v2-xlsx`, `formats-unified` and `lift-types` (in that order), tries a template and an export in Excel/Numbers on his Mac
 (`CHECKLIST.md` 13–15 apply to the Mac too). Then Jack builds on his iPhone and an Android phone following `docs/BUILD-IOS.md` / `docs/BUILD-ANDROID.md`
 (Node is already installed on his Mac; Xcode too). Fix the docs wherever he gets stuck. Then milestone 4:
 make import, saving, share/export and the checklist in `docs/CHECKLIST.md` work on both devices.

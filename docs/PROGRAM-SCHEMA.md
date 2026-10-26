@@ -1,4 +1,4 @@
-# Program model, schema version 2
+# Program model, schema version 3
 
 The xlsx is only how a program gets **in**. What the app stores, validates and renders is this JSON model.
 Both import formats produce it: the PL28 format (`src/parse-pl28.js`, expanded by `expandV1()` in `src/model.js`)
@@ -9,7 +9,7 @@ The rules on it live in `validateProgram()` in `src/model.js`.
 
 ```jsonc
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "format": "pl28",            // or "coach": which file format it came from
 
   // Massimali. id = the name in lower case; used by load tokens and by saved maxes. Empty without Massimali.
@@ -29,6 +29,7 @@ The rules on it live in `validateProgram()` in `src/model.js`.
         "kind": "main",                       // "main" or "acc"
         "name": "Squat stress",
         "instructions": "discesa 4''",        // text or null
+        "liftType": "stressante",             // overall's `tipo alzata` row (free text), or null
         "prescription": { "parts": ["4x5 + ist. ", { "lift": "squat", "pct": 0.57, "step": 2.5 }, "kg"] },
         "load": null,                         // template or null (the kg/RPE column)
         "group": "Fondamentale",              // or a muscle group, or null
@@ -59,6 +60,7 @@ the original file bytes, edited maxes, last week/day, settings.
   `phase` per week. `migrate()` upgrades it with `expandV1()`, the same expansion the PL28 parser uses,
   and the upgraded program is saved back.
 - **Schema 2**: explicit sessions, week types, coach format.
+- **Schema 3** (2026-10-26): `liftType` on every item. `migrate()` adds `liftType: null` to schema-2 programs.
 
 ## Changing the schema
 

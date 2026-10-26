@@ -100,10 +100,11 @@ export function sameHeader(got, want) {
  *   "giorno" layout: week | giorno | tipo | lifts…   B = the week's dates; the week type is in the `tipo` column
  *   "fase" layout:   week | fase | lifts…            the PL28 layout until 2026-10: B = the week type
  * Lift columns are all the other headed columns; empty columns are separators.
+ * Row 2 may be the lift-type row: A2 = "tipo alzata", free text (stressante, rigenerante…) under each lift.
  * Rows: A empty with a name in B or text under a lift = block row (B = its name, optional); A filled = week row.
  * Blank rows are skipped; two in a row end the sheet.
  * `layouts`: which B1 headers the caller accepts. Returns null when the headers are wrong (errors reported), else
- *   {layout, tipoCol, liftCols: [{c, header}], rows: [{r, kind: "block", name} | {r, kind: "week", a, dates, type, typeRef}]}
+ *   {layout, tipoCol, liftCols: [{c, header, liftType}], rows: [{r, kind: "block", name} | {r, kind: "week", a, dates, type, typeRef}]}
  * where `type` is the raw text (the caller checks it) and `a` the week cell.
  */
 export function scanOverall(ws, err, layouts) {
@@ -125,9 +126,12 @@ export function scanOverall(ws, err, layouts) {
     else liftCols.push({ c, header: h });
   }
 
+  const typeRow = sameHeader(text(ws, 2, 1), "tipo alzata");
+  for (const lc of liftCols) lc.liftType = typeRow ? text(ws, 2, lc.c) || null : null;
+
   const rows = [];
   let empty = 0;
-  for (let r = 2; r <= lastRow(ws); r++) {
+  for (let r = typeRow ? 3 : 2; r <= lastRow(ws); r++) {
     const a = getCell(ws, r, 1);
     const b = text(ws, r, 2);
     const tipo = tipoCol ? text(ws, r, tipoCol) : "";

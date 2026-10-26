@@ -6,8 +6,9 @@
 // Schema 2 stores every session explicitly: weeks[].days[].items[]. That is what lets the coach format
 // change accessories, sets and reps from week to week. The PL28 format (accessories per block) is expanded
 // into the same shape by expandV1(), which is also how schema-1 programs saved earlier are upgraded.
+// Schema 3 adds liftType to every item: the `tipo alzata` row of overall (stressante, rigenerante…), or null.
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** Week types (FORMAT-COACH-SPEC.md §9): one fixed list for both formats. "normale" = no badge. */
 export const WEEK_TYPES = ["normale", "scarico", "transizione", "ramping", "intensificazione", "picco", "taper", "entrata", "test", "gara"];
@@ -68,14 +69,14 @@ export function expandV1(v1) {
         const rx = v1.prescriptions[wi][si];
         if (slot.day !== letter || rx == null) return;
         items.push({ kind: "main", name: slot.name, instructions: v1.blocks[w.block].variants[si] || null,
-          prescription: rx, load: null, group: "Fondamentale", note: null });
+          liftType: slot.type || null, prescription: rx, load: null, group: "Fondamentale", note: null });
       });
       for (const a of v1.accessories) {
         if (a.day !== letter || a.volumeOnly) continue;
         const sets = a.sets[w.block] - (light ? 1 : 0);
         if (sets <= 0) continue;
         const intensity = accTemplate(a.intensity);
-        items.push({ kind: "acc", name: a.name, instructions: a.instructions || null,
+        items.push({ kind: "acc", name: a.name, instructions: a.instructions || null, liftType: null,
           prescription: { parts: joinParts([`${sets}x`, ...(accTemplate(a.reps)?.parts || [])]) },
           load: light ? lightIntensity(intensity) : intensity, group: a.group || null, note: null });
       }
@@ -127,8 +128,17 @@ export function migrate(model) {
   if (m.schemaVersion > SCHEMA_VERSION) {
     throw new Error(`Programma salvato con una versione più recente dell'app (schema ${m.schemaVersion}): aggiorna l'app`);
   }
-  if (m.schemaVersion === 1) m = expandV1(m); // 1 → 2: accessories per block → explicit sessions
+  if (m.schemaVersion === 1) m = expandV1(m); // 1 → 2 (and 3): accessories per block → explicit sessions
+  if (m.schemaVersion === 2) m = withLiftTypes(m); // 2 → 3: every item gets liftType (none before)
   return m;
+}
+
+function withLiftTypes(m) {
+  return {
+    ...m,
+    schemaVersion: 3,
+    weeks: m.weeks.map((w) => ({ ...w, days: w.days.map((d) => ({ ...d, items: d.items.map((it) => ({ ...it, liftType: null })) })) })),
+  };
 }
 
 /**
@@ -165,6 +175,7 @@ export function validateProgram(m) {
         const p = `weeks.${wi}.days.${di}.items.${ii}`;
         if (!it.name) err(`${p}.name`, "esercizio senza nome");
         if (it.kind !== "main" && it.kind !== "acc") err(p, `tipo di esercizio "${it.kind}" non valido`);
+        if (it.liftType != null && typeof it.liftType !== "string") err(p, "tipo di alzata non valido");
         for (const [field, tpl] of [["prescription", it.prescription], ["load", it.load], ["note", it.note]]) {
           for (const part of tpl?.parts || []) {
             if (typeof part === "string") continue;

@@ -113,6 +113,7 @@ export function session(model, n, letter, maxes) {
       kind: it.kind,
       name: it.name,
       instructions: it.instructions,
+      liftType: it.liftType ?? null,
       group: it.group,
       text,
       load,

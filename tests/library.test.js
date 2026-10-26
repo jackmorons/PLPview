@@ -149,11 +149,11 @@ describe("programs and revisions (§7.7)", () => {
     const relaunched = createLibrary(store, deps);
     await relaunched.load();
     const m = relaunched.model(p.id);
-    expect(m.schemaVersion).toBe(2);
+    expect(m.schemaVersion).toBe(3);
     expect(m.weeks[0].type).toBe("test");
     expect(m.weeks[0].days[0].items.map((i) => [i.name, i.prescription.parts[0], i.load?.parts[0] ?? null]))
       .toEqual([["Squat", "3x3 ", null], ["Plank", "2xmax", "RIR 2"]]);
-    expect(JSON.parse(store.data.get(`programs/${p.id}.json`)).revisions[0].model.schemaVersion).toBe(2); // saved upgraded
+    expect(JSON.parse(store.data.get(`programs/${p.id}.json`)).revisions[0].model.schemaVersion).toBe(3); // saved upgraded
   });
 
   it("imports a coach-format file next to a PL28-format one", async () => {

@@ -103,7 +103,7 @@ describe("what the exported file contains", () => {
     const long = "x".repeat(600);
     m.weeks[0].days[0].items[0].prescription.parts[2] += long; // "4x5 ", load, "kg…"
     const wb = XLSX.read(await writeWorkbook(exportProgram(m, "pl28")), { type: "array", cellFormula: true });
-    expect(wb.Sheets.overall.D3.f.match(/"[^"]*"/g).every((s) => s.length <= 257)).toBe(true);
+    expect(wb.Sheets.overall.D4.f.match(/"[^"]*"/g).every((s) => s.length <= 257)).toBe(true);
     expect(sameProgram(parseXlsx(await writeWorkbook(exportProgram(m, "pl28"))).model, m)).toBe(true);
   });
 });

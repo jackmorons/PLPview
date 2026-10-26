@@ -94,7 +94,7 @@ describe("A4: blank rows in overall", () => {
 
   it("a row with only a week type and no week number is an error", async () => {
     const r = await pl28NewLayout((d) => sheet(d, "overall").rows.push([null, null, "scarico"]));
-    expect(r.errors.map((e) => e.ref)).toEqual(["overall!A26"]); // header + 4 block rows + 20 weeks, then this one
+    expect(r.errors.map((e) => e.ref)).toEqual(["overall!A27"]); // header, lift types, 4 block rows, 20 weeks, then this one
   });
 });
 
@@ -119,7 +119,7 @@ describe("B1–B2: PL28 in the shared overall layout", () => {
   });
 
   it("dates in giorno reach the app, and the program can still be exported as PL28", async () => {
-    const r = await pl28NewLayout((d) => { sheet(d, "overall").rows[2][1] = "6-12/10"; });
+    const r = await pl28NewLayout((d) => { sheet(d, "overall").rows[3][1] = "6-12/10"; }); // row 4 = week 1
     expect(r.errors).toEqual([]);
     expect(r.model.weeks[0].dates).toBe("6-12/10");
     expect(session(r.model, 1, "A", maxesFor(r.model)).dates).toBe("6-12/10");
@@ -128,8 +128,8 @@ describe("B1–B2: PL28 in the shared overall layout", () => {
   });
 
   it("the type is read from the tipo column, and a wrong type names that cell", async () => {
-    const r = await pl28NewLayout((d) => { sheet(d, "overall").rows[2][2] = "leggera"; });
-    expect(r.errors.map((e) => e.ref)).toEqual(["overall!C3"]);
+    const r = await pl28NewLayout((d) => { sheet(d, "overall").rows[3][2] = "leggera"; });
+    expect(r.errors.map((e) => e.ref)).toEqual(["overall!C4"]);
   });
 
   it("any other B1 header is an error naming both layouts", () => {
