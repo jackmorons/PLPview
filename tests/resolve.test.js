@@ -48,7 +48,7 @@ describe("program model", () => {
   });
   it("migrate refuses a newer schema", () => {
     expect(migrate(m)).toBe(m);
-    expect(() => migrate({ ...m, schemaVersion: 3 })).toThrow(/versione più recente/);
+    expect(() => migrate({ ...m, schemaVersion: 4 })).toThrow(/versione più recente/);
   });
   it("RIR +1 and week types", () => {
     expect(["RIR 0-1", "RIR 2", "@7/8", "—"].map(rirPlusOne)).toEqual(["RIR 1-2", "RIR 3", "@7/8", "—"]);

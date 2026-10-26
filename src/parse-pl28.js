@@ -55,10 +55,10 @@ function parseOverall(ws, lifts, err, src) {
 
   let ok = true;
   const slots = [];
-  for (const { c, header } of scan.liftCols) {
+  for (const { c, header, liftType } of scan.liftCols) {
     const m = SLOT_HEADER.exec(header);
     if (!m) { err(`overall!${col(c)}1`, `intestazione "${header}" non valida: serve "Nome (X)", con X lettera del giorno`); ok = false; continue; }
-    slots.push({ name: m[1], day: m[2].toUpperCase(), _col: c });
+    slots.push({ name: m[1], day: m[2].toUpperCase(), type: liftType, _col: c });
   }
   if (!slots.length && ok) { err(`overall!${col(scan.tipoCol ? scan.tipoCol + 1 : 3)}1`, "nessuna colonna di alzata"); ok = false; }
   if (!ok) return null;

@@ -2,7 +2,7 @@
 // one row per exercise. `overall` (optional) gives week types, dates and blocks, and holds the main-lift cells
 // the log points at with =overall!C3. `Massimali` (optional) makes MROUND loads follow the maxes.
 // Called by parser.js. Pure: no DOM, no Capacitor.
-import { validateProgram, weekType, WEEK_TYPES } from "./model.js";
+import { validateProgram, weekType, WEEK_TYPES, SCHEMA_VERSION } from "./model.js";
 import {
   parseFormula, bindLoads, parseTextTokens, parseMassimali, parseNotes, weekNumber, checkMerges, locate,
   findSheet, scanOverall, getCell, isEmpty, cellText, text, lastRow, col,
@@ -114,7 +114,7 @@ export function parseCoach(wb, logName, err, warnings) {
   }
 
   const model = {
-    schemaVersion: 2,
+    schemaVersion: SCHEMA_VERSION,
     format: "coach",
     lifts: (lifts || []).map(({ _row, ...l }) => l),
     days,
@@ -133,10 +133,13 @@ function item(ws, logName, row, hasGroup, ctx) {
   let kind;
   if (group) kind = group.toLowerCase() === "fondamentale" ? "main" : "acc";
   else kind = MAIN_BY_NAME.test(row.name.toLowerCase()) ? "main" : "acc";
+  // A row whose E points at an overall cell takes that column's lift type (the `tipo alzata` row).
+  const ref = at(5).cell?.f != null && OVERALL_REF.exec(at(5).cell.f);
   return {
     kind,
     name: row.name,
     instructions: plain(resolve(at(4), ctx), at(4).ref, ctx),
+    liftType: (ref && ctx.liftTypes?.[ref[1].toUpperCase()]) || null,
     prescription: resolve(at(5), ctx),
     load: resolve(at(6), ctx),
     group: group || null,
@@ -189,6 +192,7 @@ function readOverall(ws, ctx) {
   const blockNames = [];
   const scan = scanOverall(ws, err, ["giorno"]);
   if (!scan) return { weeks, blockNames };
+  ctx.liftTypes = Object.fromEntries(scan.liftCols.filter((l) => l.liftType).map((l) => [col(l.c), l.liftType]));
 
   for (const row of scan.rows) {
     const { r } = row;

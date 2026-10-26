@@ -86,20 +86,23 @@ function massimaliSheet(m) {
 function coachWorkbook(m) {
   const maxes = liftMaxes(m);
 
-  // overall columns: the n-th main lift of a day, in the program's day order. Header = its first name.
+  // overall columns: the n-th main lift of a day. Header = its first name; lift type = the first one given.
   const slots = [];
   for (const day of m.days) {
     for (const w of m.weeks) {
       const mains = w.days.find((d) => d.letter === day)?.items.filter((i) => i.kind === "main") || [];
       mains.forEach((it, k) => {
-        if (!slots.some((s) => s.day === day && s.k === k)) slots.push({ day, k, name: it.name });
+        let s = slots.find((x) => x.day === day && x.k === k);
+        if (!s) slots.push((s = { day, k, name: it.name, rx: it.prescription, liftType: null }));
+        s.liftType ??= it.liftType;
       });
     }
   }
-  slots.sort((a, b) => m.days.indexOf(a.day) - m.days.indexOf(b.day) || a.k - b.k);
+  // Grouped by lift (Squat A, C, D, then Panca…), then by day.
+  slots.sort((a, b) => liftRank(m, a.name, a.rx) - liftRank(m, b.name, b.rx) || m.days.indexOf(a.day) - m.days.indexOf(b.day) || a.k - b.k);
   const slotCol = (day, k) => 4 + slots.findIndex((s) => s.day === day && s.k === k); // D onwards
 
-  const ov = [overallHeader(slots.map((s) => `${s.name} (${s.day})`))];
+  const ov = [overallHeader(slots.map((s) => `${s.name} (${s.day})`)), liftTypeRow(slots.map((s) => s.liftType))];
   const ovRow = {}; // week n → overall row number
   let block = null;
   for (const w of m.weeks) {
@@ -147,6 +150,20 @@ function coachWorkbook(m) {
   };
 }
 
+/**
+ * Where a lift column goes when columns are grouped by lift: the index of the Massimali lift its name starts with
+ * ("Panca var." → Panca), else of the first lift its loads use; columns of no lift (Trazioni) go last.
+ */
+function liftRank(m, name, rx) {
+  const n = name.toLowerCase();
+  let i = m.lifts.findIndex((l) => n.startsWith(l.id) && !/[\p{L}\d]/u.test(n[l.id.length] || ""));
+  if (i < 0) {
+    const token = rx?.parts.find((p) => typeof p !== "string");
+    i = token ? m.lifts.findIndex((l) => l.id === token.lift) : -1;
+  }
+  return i < 0 ? m.lifts.length : i;
+}
+
 function mainAt(w, day, k) {
   return w.days.find((d) => d.letter === day)?.items.filter((i) => i.kind === "main")[k] || null;
 }
@@ -173,12 +190,22 @@ export function toV1(m) {
   const dayOf = (w, letter) => w.days.find((d) => d.letter === letter)?.items || [];
 
   // Main lifts: one column per (day, name), in the order they appear.
-  const slots = [];
+  let slots = [];
   for (const day of days) {
     const keys = mergeOrders(m.weeks.map((w) => keyed(dayOf(w, day).filter((i) => i.kind === "main"), (i) => i.name)));
     for (const key of keys) slots.push({ day, key, name: key.slice(0, key.lastIndexOf("#")) });
   }
   const slotItem = (w, s) => keyedMap(dayOf(w, s.day).filter((i) => i.kind === "main"), (i) => i.name).get(s.key);
+  for (const s of slots) {
+    const items = m.weeks.map((w) => slotItem(w, s)).filter(Boolean);
+    s.type = items.map((i) => i.liftType).find((t) => t) || null;
+    s.rank = liftRank(m, s.name, items.find((i) => i.prescription)?.prescription);
+  }
+  // Columns grouped by lift, then by day. A day's lifts are listed in column order, so this is only possible when
+  // it keeps every day's own order; otherwise the columns stay grouped by day.
+  const byLift = slots.map((s, i) => ({ s, i })).sort((a, b) => a.s.rank - b.s.rank || days.indexOf(a.s.day) - days.indexOf(b.s.day) || a.i - b.i).map((x) => x.s);
+  const order = (list, day) => list.filter((s) => s.day === day).map((s) => s.key).join("|");
+  if (days.every((d) => order(byLift, d) === order(slots, d))) slots = byLift;
 
   const blocks = m.blocks.map((b, bi) => {
     const ws = m.weeks.filter((w) => w.block === bi);
@@ -215,7 +242,7 @@ export function toV1(m) {
     blocks,
     weeks: m.weeks.map((w) => ({ number: w.n, type: w.type, block: w.block, dates: w.dates })),
     days,
-    slots: slots.map(({ name, day }) => ({ name, day })),
+    slots: slots.map(({ name, day, type }) => ({ name, day, type })),
     prescriptions,
     accessories,
     notes: m.notes,
@@ -289,7 +316,7 @@ function canonical(x) {
 /** PL28 format (FORMAT.md): Massimali + overall (slots × weeks) + accessori (sets per block). */
 function pl28Workbook(v1, m) {
   const maxes = liftMaxes(m);
-  const ov = [overallHeader(v1.slots.map((s) => `${s.name} (${s.day})`))];
+  const ov = [overallHeader(v1.slots.map((s) => `${s.name} (${s.day})`)), liftTypeRow(v1.slots.map((s) => s.type))];
   v1.blocks.forEach((b, bi) => {
     ov.push([null, { v: b.name, bold: true }, null, ...b.variants.map((x) => x || null)]);
     v1.weeks.forEach((w, wi) => {
@@ -325,16 +352,31 @@ function pl28Workbook(v1, m) {
 
 const TYPES = "normale,scarico,transizione,ramping,intensificazione,picco,taper,entrata,test,gara";
 
+const LIFT_TYPES = "stressante,rigenerante,tecnica,stimolo,volume";
+
 /** Row 1 of the shared `overall` layout (FORMAT.md): week | giorno (dates) | tipo | one column per lift. */
 function overallHeader(lifts) {
   return ["week", "giorno", "tipo", ...lifts].map(header);
 }
 
+/** Row 2: "tipo alzata" and each lift column's type (stressante, rigenerante…), empty where there's none. */
+function liftTypeRow(types) {
+  return [{ v: "tipo alzata", bold: true }, null, null, ...types];
+}
+
 function overallSheet(rows) {
+  const last = colName(rows[0].length);
   return {
-    name: "overall", cols: [6, 26, 16, ...rows[0].slice(3).map(() => 24)], freeze: 1, rows,
-    notes: { A1: "Riga con A vuota = nuovo blocco: nome in B, varianti sotto le alzate.", B1: "Date della settimana (testo libero, facoltativo).", C1: TYPE_HELP, D1: LOAD_HELP },
-    validations: [{ range: "C2:C400", list: TYPES, strict: true }],
+    name: "overall", cols: [11, 26, 16, ...rows[0].slice(3).map(() => 24)], freeze: 2, rows,
+    notes: {
+      A1: "Riga con A vuota = nuovo blocco: nome in B, varianti sotto le alzate.", B1: "Date della settimana (testo libero, facoltativo).",
+      C1: TYPE_HELP, D1: LOAD_HELP,
+      A2: "Tipo di ogni alzata (facoltativo, testo libero): stressante, rigenerante, tecnica… L'app lo mostra accanto al nome.",
+    },
+    validations: [
+      { range: "C3:C400", list: TYPES, strict: true },
+      ...(rows[0].length > 3 ? [{ range: `D2:${last}2`, list: LIFT_TYPES, strict: false }] : []),
+    ],
   };
 }
 
