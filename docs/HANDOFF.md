@@ -98,9 +98,10 @@ visible there.
 
 ## Open issues
 
-1. **SheetJS 0.18.5** (last npm release) has two advisories (prototype pollution, ReDoS) on crafted files.
-   The fix is `"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"` in `package.json`, but
-   cdn.sheetjs.com is **blocked from the cloud container** (403). Jack has to do it on his Mac, then `npm test`.
+1. ~~SheetJS advisories~~ fixed 2026-10-26: `xlsx` now comes from `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`
+   (done on Jack's Mac; cdn.sheetjs.com is blocked from cloud containers, so `npm install` there may need the
+   lockfile's cached tarball or a normal network). `npm audit` still shows 3 moderate `uuid` advisories inside
+   `@capacitor/cli` (build tooling only; left as is).
 2. **Phone code never executed:** `storage.js` (Filesystem, Directory.Data), `native.js` (`@capawesome/capacitor-file-picker`
    with `readData: true`, Share via Cache file). Expect fixes in milestone 4.
 3. **PL27 data:** some main-lift rows in its log (e.g. week 15 squat/panca) have empty E/F; the prescriptions exist
