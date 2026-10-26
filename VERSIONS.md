@@ -147,6 +147,12 @@ These are part of v1 even though their payoff comes later. Don't skip them.
 - 2026-10-26: PL28 export is offered only when the PL28 format describes the program exactly: `toV1()` rebuilds slots and per-block accessories (undoing the light-week −1 set / RIR +1) and the result must expand to the identical program. Otherwise the export dialog explains why and offers coach only. `PL28_coach.xlsx` is coach-only (its notes); `PL28.xlsx` goes to both.
 - 2026-10-26: Accessory rows with `Intensità = vedi overall` aren't in the model, so a PL28 export doesn't contain them. They only matter for the volume view, which isn't built.
 - 2026-10-26: Export file name = program name + `.xlsx`, so re-importing it offers to update the same program.
+- 2026-10-26: **Format change (approved by Jack): the two formats made as similar as possible** (`FORMAT.md`, `FORMAT-COACH.md`). Every existing file imports exactly as before (tests).
+  - Same reading rules: sheet names and headers ignore capitals; lowercase day letters are read as capitals; days are alphabetical in both; in `overall` blank rows are skipped and two in a row end the sheet; a block row needs only a name or a variant (unnamed = `Blocco n`).
+  - One `overall` layout for both: `week | giorno (dates) | tipo | lift columns`. PL28 now has week dates and the `tipo` column; its old `week | fase | …` layout is still read. PL28 lift headers keep the day letter `Nome (X)`; coach headers are free.
+  - PL28 `accessori`: `Rep` and `Intensità` accept load formulas and `{Squat .57}` placeholders. In light weeks a load isn't changed (RIR +1 only applies to text starting with `RIR`).
+  - Exports and templates write the shared layout with `formatVersion = 2`; the parser reads 1 and 2. A PL28 and a coach export of the same program have identical `Massimali`, `overall` and `note` sheets.
+  - Kept different on purpose: accessori vs training log, the light-week rule, PL28's automatic reminders, how main lifts are found, empty main-lift cells, `vedi overall`. No `Note` column in `accessori`.
 - 2026-10-26: Coach exports write `overall` with one column per (day, n-th main lift), headed `Nome (giorno)`, and the log's main rows point there with `=overall!D3`, as in PL27. A main lift with no group and a name the format wouldn't recognise gets `Fondamentale` in `Gruppo`.
 
 ---
@@ -204,6 +210,7 @@ These are part of v1 even though their payoff comes later. Don't skip them.
 Newest first. One entry per release or significant milestone.
 
 ### Unreleased
+- 2026-10-26: **Formats unified** (branch `formats-unified`): shared `overall` layout, same reading rules, loads in PL28 accessories, dates in PL28, format version 2. 111 tests.
 - 2026-10-26: **v2 in the browser.** Templates in both formats ("Scarica template…"), "Esporta come xlsx…" in PL28 or coach format with real MROUND formulas, "Verifica file…". Coach format: block names in `overall`. ExcelJS added (lazy). 94 tests.
 - 2026-10-26: SheetJS 0.18.5 → 0.20.3 (cdn.sheetjs.com tarball), closing the prototype-pollution and ReDoS advisories. No code changes needed.
 - 2026-10-25: **Coach format + week types.** New parser for the coach format (`src/parse-coach.js`), PL28 parser split (`src/parse-pl28.js`, `src/parse-common.js`), program schema 2 with explicit sessions and `migrate()` from schema 1 (programs saved by milestone 3 are upgraded on load). Week types with badges, pills and banners; max editor hidden for files without Massimali; change summary works on sessions. Docs: `FORMAT-COACH.md`, `PROGRAM-SCHEMA.md` (v2), `FORMAT.md` updated. 72 tests.

@@ -10,8 +10,9 @@ One web codebase (Vite, plain JS, no framework, no TypeScript) wrapped by **Capa
 and `android/` (Android Studio). UI and program text are **Italian**. Jack wants to understand the project:
 explaining as you build is part of the deliverable (`docs/PL-App-SPEC.md` §8).
 
-**Branches:** `main` of `jackmorons/plpview` has milestones 1–3 and the coach format. `sheetjs-0.20.3` (SheetJS fix)
-and `v2-xlsx` (templates + export, built on top of `sheetjs-0.20.3`) are waiting for Jack to merge. Start new work
+**Branches:** `main` of `jackmorons/plpview` has milestones 1–3 and the coach format. Waiting for Jack to merge, each
+built on the previous one: `sheetjs-0.20.3` (SheetJS fix) → `v2-xlsx` (templates + export) → `formats-unified`
+(shared `overall` layout and reading rules). Start new work
 on a new branch from `main` once they're in. On Jack's Mac, git has no GitHub login set up and `gh` isn't installed:
 Jack pushes and opens PRs himself.
 
@@ -36,7 +37,7 @@ Jack pushes and opens PRs himself.
 | `parser.js` | bytes → model or error list; picks the format | yes |
 | `parse-pl28.js` | PL28 format → schema-1 shape (`readV1`) → `expandV1` → schema 2 | yes |
 | `parse-coach.js` | coach format (`training log` + optional `overall`, `Massimali`) → schema 2 | yes |
-| `parse-common.js` | cell helpers, formula grammar, `{Squat .57}` placeholders, Massimali | yes |
+| `parse-common.js` | cell helpers, formula grammar, `{Squat .57}` placeholders, Massimali, case-insensitive sheets, `scanOverall()` (the `overall` layout both formats share) | yes |
 | `model.js` | `SCHEMA_VERSION = 2`, week types, `expandV1`, `migrate`, `validateProgram` | yes |
 | `resolve.js` | model + maxes → display strings, plates, `session()`, week-type labels | yes |
 | `programs.js` | revisions (last 5), restore, carry-over of maxes/position, change summary | yes |
@@ -54,7 +55,7 @@ Jack pushes and opens PRs himself.
 
 ```sh
 npm install
-npm test             # Vitest, 94 tests, ~3 s
+npm test             # Vitest, 111 tests, ~3 s
 npm run dev          # browser at http://localhost:5173 (opening index.html directly shows a blank page)
 npm run build && npx cap sync
 npm run example      # regenerate examples/example.xlsx
@@ -85,11 +86,14 @@ downloads by patching `HTMLAnchorElement.prototype.click`. Remove the test progr
 
 - Bundle id `it.jackmorons.plpviewapp`, app name "PL".
 - Load placeholders use the **full lift name**: `{Squat .57}`. The letter rule in `PL-App-SPEC.md` §3.3 is superseded.
+- **The two formats share `Massimali`, `overall` (`week | giorno | tipo | lifts`), `note`, `meta` and every reading
+  rule** (2026-10-26); they differ only in `accessori` vs `training log` and what follows from it. Files the app writes
+  are `formatVersion = 2`. PL28's older `week | fase | …` layout is still read.
 - Format detection: an `accessori` sheet → PL28 format (even if a `training log` sheet exists, as in `PL28.xlsx`);
   otherwise one `training log…` sheet → coach format.
 - Week types: fixed list (`normale, scarico, transizione, ramping, intensificazione, picco, taper, entrata, test, gara`),
   case-insensitive, anything else is an error. Only in the PL28 format do `transizione/scarico/test` reduce accessory
-  sets by 1 and add RIR +1 (`rirPlusOne`).
+  sets by 1 and add RIR +1 (`rirPlusOne`, text intensities starting with `RIR` only; a kg load is unchanged).
 - PL28 vs coach "same sessions" test ignores main-lift names (`Squat stress` vs `squat`) and treats `—` as empty.
 - Accessories display as written: `3x8-10` (not `3×8-10`).
 - A day's first note is its banner and isn't repeated under the item. PL28-format files get their reminders
@@ -132,7 +136,7 @@ downloads by patching `HTMLAnchorElement.prototype.click`. Remove the test progr
 
 ## Next step
 
-Jack merges `sheetjs-0.20.3` and `v2-xlsx`, tries a template and an export in Excel/Numbers on his Mac
+Jack merges `sheetjs-0.20.3`, `v2-xlsx` and `formats-unified` (in that order), tries a template and an export in Excel/Numbers on his Mac
 (`CHECKLIST.md` 13–15 apply to the Mac too). Then Jack builds on his iPhone and an Android phone following `docs/BUILD-IOS.md` / `docs/BUILD-ANDROID.md`
 (Node is already installed on his Mac; Xcode too). Fix the docs wherever he gets stuck. Then milestone 4:
 make import, saving, share/export and the checklist in `docs/CHECKLIST.md` work on both devices.

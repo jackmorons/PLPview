@@ -99,7 +99,7 @@ function coachWorkbook(m) {
   slots.sort((a, b) => m.days.indexOf(a.day) - m.days.indexOf(b.day) || a.k - b.k);
   const slotCol = (day, k) => 4 + slots.findIndex((s) => s.day === day && s.k === k); // D onwards
 
-  const ov = [[...["week", "giorno", "tipo"].map(header), ...slots.map((s) => header(`${s.name} (${s.day})`))]];
+  const ov = [overallHeader(slots.map((s) => `${s.name} (${s.day})`))];
   const ovRow = {}; // week n → overall row number
   let block = null;
   for (const w of m.weeks) {
@@ -136,11 +136,7 @@ function coachWorkbook(m) {
     sheets: [
       noteSheet(m),
       ...(m.lifts.length ? [massimaliSheet(m)] : []),
-      {
-        name: "overall", cols: [6, 12, 16, ...slots.map(() => 24)], freeze: 1, rows: ov,
-        notes: { C1: TYPE_HELP, D1: LOAD_HELP },
-        validations: [{ range: "C2:C400", list: TYPES, strict: true }],
-      },
+      overallSheet(ov),
       {
         name: "training log", cols: [10, 8, 26, 28, 26, 14, 12, 12, 30, 20], freeze: 1, rows: log,
         notes: { E1: `${LOAD_HELP}. Oppure un riferimento a overall: =overall!D3` },
@@ -165,7 +161,7 @@ function groupCell(it) {
 
 /**
  * Model → the PL28 sheets' shape (schema 1: slots × weeks, accessories with sets per block), or {error}.
- * The PL28 format can't say everything the model can (accessories that change inside a block, notes, dates…),
+ * The PL28 format can't say everything the model can (accessories that change inside a block, notes…),
  * so the result is checked by expanding it again: it must give back exactly the same program.
  */
 export function toV1(m) {
@@ -217,17 +213,14 @@ export function toV1(m) {
   const v1 = {
     lifts: m.lifts.map((l) => ({ id: l.id, name: l.name, defaultMax: l.defaultMax })),
     blocks,
-    weeks: m.weeks.map((w) => ({ number: w.n, type: w.type, block: w.block })),
+    weeks: m.weeks.map((w) => ({ number: w.n, type: w.type, block: w.block, dates: w.dates })),
     days,
     slots: slots.map(({ name, day }) => ({ name, day })),
     prescriptions,
     accessories,
     notes: m.notes,
   };
-  if (!sameProgram(expandV1(v1), m)) {
-    if (m.weeks.some((w) => w.dates)) return no("ha le date delle settimane");
-    return no("cambia accessori, varianti o note all'interno di un blocco");
-  }
+  if (!sameProgram(expandV1(v1), m)) return no("cambia accessori, varianti o note all'interno di un blocco");
   return v1;
 }
 
@@ -236,14 +229,15 @@ export function toV1(m) {
  * Notes are left out: in this format they are the reminders expandV1 adds, and the final check catches any other.
  */
 function accRow(it, light) {
-  const rx = it.prescription?.parts;
-  const m = rx?.length === 1 && typeof rx[0] === "string" && /^(\d+)x(.*)$/s.exec(rx[0]);
-  const load = it.load?.parts || [];
-  if (!m || load.some((p) => typeof p !== "string")) return null;
-  const intensity = load.join("");
+  const rx = it.prescription?.parts || [];
+  const m = typeof rx[0] === "string" && /^(\d+)x(.*)$/s.exec(rx[0]);
+  if (!m) return null;
+  const reps = [m[2], ...rx.slice(1)].filter((p) => p !== "");
+  let intensity = it.load;
+  if (light && intensity?.parts.every((p) => typeof p === "string")) intensity = { parts: [rirMinusOne(intensity.parts.join(""))] };
   return {
-    name: it.name, instructions: it.instructions || "", group: it.group || "", reps: m[2],
-    intensity: light ? rirMinusOne(intensity) : intensity, sets: +m[1] + (light ? 1 : 0), light,
+    name: it.name, instructions: it.instructions || "", group: it.group || "",
+    reps: reps.length ? { parts: reps } : null, intensity, sets: +m[1] + (light ? 1 : 0), light,
   };
 }
 
@@ -295,33 +289,33 @@ function canonical(x) {
 /** PL28 format (FORMAT.md): Massimali + overall (slots × weeks) + accessori (sets per block). */
 function pl28Workbook(v1, m) {
   const maxes = liftMaxes(m);
-  const ov = [[header("week"), header("fase"), ...v1.slots.map((s) => header(`${s.name} (${s.day})`))]];
+  const ov = [overallHeader(v1.slots.map((s) => `${s.name} (${s.day})`))];
   v1.blocks.forEach((b, bi) => {
-    ov.push([null, { v: b.name, bold: true }, ...b.variants.map((x) => x || null)]);
+    ov.push([null, { v: b.name, bold: true }, null, ...b.variants.map((x) => x || null)]);
     v1.weeks.forEach((w, wi) => {
       if (w.block !== bi) return;
-      ov.push([w.number, w.type === "normale" ? null : w.type, ...v1.prescriptions[wi].map((t) => templateCell(t, maxes))]);
+      ov.push([w.number, w.dates, w.type === "normale" ? null : w.type, ...v1.prescriptions[wi].map((t) => templateCell(t, maxes))]);
     });
   });
 
   const weeksOf = (bi) => v1.weeks.filter((w) => w.block === bi).map((w) => w.number);
   const acc = [[...["Giorno", "Esercizio", "Istruzioni", "Gruppo", "Rep", "Intensità"],
     ...v1.blocks.map((_, bi) => `Serie B${bi + 1} (sett ${weeksOf(bi)[0]}-${weeksOf(bi).at(-1)})`)].map(header)];
-  for (const a of v1.accessories) acc.push([a.day, a.name, a.instructions || null, a.group || null, a.reps, a.intensity || null, ...a.sets]);
+  for (const a of v1.accessories) {
+    acc.push([a.day, a.name, a.instructions || null, a.group || null, templateCell(a.reps, maxes), templateCell(a.intensity, maxes), ...a.sets]);
+  }
 
   return {
     sheets: [
       noteSheet(m),
       massimaliSheet(m),
-      {
-        name: "overall", cols: [6, 26, ...v1.slots.map(() => 24)], freeze: 1, rows: ov,
-        notes: { B1: `Riga con A vuota = nuovo blocco (nome in B, varianti a destra). ${TYPE_HELP}`, C1: LOAD_HELP },
-        // B also holds block names, so the dropdown only suggests: other values are allowed.
-        validations: [{ range: "B2:B400", list: TYPES, strict: false }],
-      },
+      overallSheet(ov),
       {
         name: "accessori", cols: [8, 26, 30, 18, 10, 12, ...v1.blocks.map(() => 18)], freeze: 1, rows: acc,
-        notes: { G1: "Una colonna «Serie B…» per blocco di overall. Nelle settimane transizione/scarico/test l'app toglie 1 serie e aggiunge 1 al RIR." },
+        notes: {
+          E1: `Rep e Intensità possono contenere carichi. ${LOAD_HELP}`,
+          G1: "Una colonna «Serie B…» per blocco di overall. Nelle settimane transizione/scarico/test l'app toglie 1 serie e aggiunge 1 al RIR.",
+        },
         validations: [{ range: "A2:A400", list: v1.days.join(","), strict: false }],
       },
       metaSheet(),
@@ -330,6 +324,19 @@ function pl28Workbook(v1, m) {
 }
 
 const TYPES = "normale,scarico,transizione,ramping,intensificazione,picco,taper,entrata,test,gara";
+
+/** Row 1 of the shared `overall` layout (FORMAT.md): week | giorno (dates) | tipo | one column per lift. */
+function overallHeader(lifts) {
+  return ["week", "giorno", "tipo", ...lifts].map(header);
+}
+
+function overallSheet(rows) {
+  return {
+    name: "overall", cols: [6, 26, 16, ...rows[0].slice(3).map(() => 24)], freeze: 1, rows,
+    notes: { A1: "Riga con A vuota = nuovo blocco: nome in B, varianti sotto le alzate.", B1: "Date della settimana (testo libero, facoltativo).", C1: TYPE_HELP, D1: LOAD_HELP },
+    validations: [{ range: "C2:C400", list: TYPES, strict: true }],
+  };
+}
 
 function header(v) {
   return { v, bold: true, header: true };

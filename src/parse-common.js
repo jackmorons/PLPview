@@ -79,6 +79,76 @@ export function parseTextTokens(str, lifts) {
   return { template: { parts: mergeText(parts) } };
 }
 
+/** The sheet called `name`, ignoring capitals and spaces at the ends ("massimali", "Overall "); null if none. */
+export function findSheet(wb, name) {
+  const hit = wb.SheetNames.find((s) => s.trim().toLowerCase() === name.toLowerCase());
+  return hit ? wb.Sheets[hit] : null;
+}
+
+/** Sheet names that appear twice once capitals are ignored ("note" and "Note"): each is an error. */
+export function duplicateSheets(wb, names) {
+  return names.map((n) => wb.SheetNames.filter((s) => s.trim().toLowerCase() === n.toLowerCase())).filter((h) => h.length > 1);
+}
+
+/** A header cell matches, ignoring capitals and spaces at the ends. */
+export function sameHeader(got, want) {
+  return got.toLowerCase() === want.toLowerCase();
+}
+
+/**
+ * The `overall` layout shared by both formats (FORMAT.md, FORMAT-COACH.md). Row 1:
+ *   "giorno" layout: week | giorno | tipo | lifts…   B = the week's dates; the week type is in the `tipo` column
+ *   "fase" layout:   week | fase | lifts…            the PL28 layout until 2026-10: B = the week type
+ * Lift columns are all the other headed columns; empty columns are separators.
+ * Rows: A empty with a name in B or text under a lift = block row (B = its name, optional); A filled = week row.
+ * Blank rows are skipped; two in a row end the sheet.
+ * `layouts`: which B1 headers the caller accepts. Returns null when the headers are wrong (errors reported), else
+ *   {layout, tipoCol, liftCols: [{c, header}], rows: [{r, kind: "block", name} | {r, kind: "week", a, dates, type, typeRef}]}
+ * where `type` is the raw text (the caller checks it) and `a` the week cell.
+ */
+export function scanOverall(ws, err, layouts) {
+  let ok = true;
+  if (!sameHeader(text(ws, 1, 1), "week")) { err("overall!A1", `intestazione attesa "week", trovato "${text(ws, 1, 1)}"`); ok = false; }
+  const layout = layouts.find((l) => sameHeader(text(ws, 1, 2), l));
+  if (!layout) {
+    err("overall!B1", `intestazione attesa ${layouts.map((l) => `"${l}"`).join(" o ")}, trovato "${text(ws, 1, 2)}"`);
+    ok = false;
+  }
+  if (!ok) return null;
+
+  let tipoCol = null;
+  const liftCols = [];
+  for (let c = 3; c <= lastCol(ws); c++) {
+    const h = text(ws, 1, c);
+    if (!h) continue;
+    if (layout === "giorno" && sameHeader(h, "tipo") && tipoCol == null) tipoCol = c;
+    else liftCols.push({ c, header: h });
+  }
+
+  const rows = [];
+  let empty = 0;
+  for (let r = 2; r <= lastRow(ws); r++) {
+    const a = getCell(ws, r, 1);
+    const b = text(ws, r, 2);
+    const tipo = tipoCol ? text(ws, r, tipoCol) : "";
+    const lifts = liftCols.some(({ c }) => !isEmpty(getCell(ws, r, c)));
+    if (isEmpty(a) && !b && !tipo && !lifts) {
+      if (++empty === 2) break;
+      continue;
+    }
+    empty = 0;
+    if (isEmpty(a)) {
+      if (b || lifts) rows.push({ r, kind: "block", name: b || null });
+      else err(`overall!A${r}`, "riga senza numero di settimana né nome del blocco");
+      continue;
+    }
+    rows.push(layout === "fase"
+      ? { r, kind: "week", a, dates: null, type: b, typeRef: `overall!B${r}` }
+      : { r, kind: "week", a, dates: b || null, type: tipo, typeRef: tipoCol ? `overall!${col(tipoCol)}${r}` : null });
+  }
+  return { layout, tipoCol, liftCols, rows };
+}
+
 /**
  * The Massimali sheet: name in A, max > 0 in B, until "Totale" or two empty rows.
  * Returns lifts with their sheet row in `_row` (formulas point at rows); the caller strips `_row`.
@@ -90,7 +160,7 @@ export function parseMassimali(ws, err, src) {
   for (let r = 1; r <= last; r++) {
     const a = text(ws, r, 1);
     const b = getCell(ws, r, 2)?.v;
-    if (a === "Totale") break;
+    if (a.toLowerCase() === "totale") break;
     if (!a && (b === undefined || b === "")) {
       if (++empty === 2) break;
       continue;
