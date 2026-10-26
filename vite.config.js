@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   // Relative asset paths: the native web view loads index.html from the app bundle, not from a web server root.
   base: "./",
-  build: { outDir: "dist", emptyOutDir: true },
+  // ExcelJS is ~930 KB in its own chunk, loaded only when exporting (ui/programs.js): don't warn about it.
+  build: { outDir: "dist", emptyOutDir: true, chunkSizeWarningLimit: 1000 },
   test: { environment: "node", include: ["tests/**/*.test.js"] },
 });

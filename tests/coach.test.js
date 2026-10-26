@@ -177,6 +177,37 @@ describe("week types in the coach format (§9)", () => {
   });
 });
 
+describe("block names in overall (FORMAT-COACH.md, 2026-10-26)", () => {
+  /** Rows (1-based) of overall's variant rows: A empty, text in a lift column. */
+  const variantRows = (ws) => {
+    const out = [];
+    const last = XLSX.utils.decode_range(ws["!ref"]).e.r + 1;
+    for (let r = 2; r <= last; r++) if (ws[`A${r}`]?.v == null && ws[`D${r}`]?.v) out.push(r);
+    return out;
+  };
+
+  it("a variant row's B names its block; without a name it stays Blocco n", () => {
+    const r = parseEdited("PL28_coach.xlsx", (wb) => {
+      const [first, second] = variantRows(wb.Sheets.overall);
+      wb.Sheets.overall[`B${first}`] = { t: "s", v: "Accumulo" };
+      wb.Sheets.overall[`B${second}`] = { t: "s", v: "Intensificazione" };
+    });
+    expect(r.errors).toEqual([]);
+    expect(r.model.blocks.map((b) => b.name)).toEqual(["Accumulo", "Intensificazione", "Blocco 3", "Blocco 4"]);
+  });
+
+  it("a row with only a name in B also starts a block", () => {
+    const r = parseEdited("PL28_coach.xlsx", (wb) => {
+      const ws = wb.Sheets.overall;
+      const row = variantRows(ws)[1];
+      for (const c of "CDEFGHIJKLMNOPQRSTUVWXYZ") delete ws[`${c}${row}`];
+      ws[`B${row}`] = { t: "s", v: "Blocco senza varianti" };
+    });
+    expect(r.errors).toEqual([]);
+    expect(r.model.blocks[1]).toEqual({ name: "Blocco senza varianti", firstWeek: 6, lastWeek: 10 });
+  });
+});
+
 function issues2(edit) {
   return parseEdited("PL28_coach.xlsx", edit).errors.map(formatIssue);
 }

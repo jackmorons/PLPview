@@ -2,7 +2,7 @@
 
 The xlsx is only how a program gets **in**. What the app stores, validates and renders is this JSON model.
 Both import formats produce it: the PL28 format (`src/parse-pl28.js`, expanded by `expandV1()` in `src/model.js`)
-and the coach format (`src/parse-coach.js`). v2's exporter and v3's editor will read and write it.
+and the coach format (`src/parse-coach.js`). v2's exporter (`src/export.js`) writes it back to either format; v3's editor will edit it.
 The rules on it live in `validateProgram()` in `src/model.js`.
 
 **Every session is explicit**: weeks → days → items. Nothing in the app assumes two weeks look alike.

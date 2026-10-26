@@ -78,7 +78,8 @@ Numbers are shown in Italian format (`110`, `112,5`). D (instructions) can't con
 - `A1 = week`, `B1 = giorno` (week dates as free text, e.g. `6-12 /10`).
 - An optional column headed `tipo` holds the **week type** (see below). It isn't a lift column.
 - Other headed columns are lift columns; empty columns between them are allowed.
-- **Variant row**: A and B empty, some text in a lift column. It starts a new block (`Blocco 1`, `Blocco 2`, …).
+- **Variant row**: A empty, and a block name in B or some text in a lift column. It starts a new block, named by B
+  (`Accumulo`), or `Blocco 1`, `Blocco 2`, … when B is empty. Files exported by the app always write the name.
 - **Week row**: A = week number; B = optional dates; lift cells as in the log (text, load formula, reference).
   Every lift cell is checked, even if the log doesn't point at it.
 - Weeks present in `overall` but not in the log (or the reverse) are listed as **warnings**, not errors.
@@ -113,3 +114,13 @@ weeks get one accessory set less and RIR +1.
 4. **Blocks** don't store variants (the log's `Istruzioni` already carries them per session), so PL27's two
    `Panca rig.` columns don't collide.
 5. The day's banner note isn't repeated under its exercise.
+6. **Block names** (2026-10-26, approved by Jack): a variant row may carry the block's name in B. The brief named
+   blocks only `Blocco 1…n`, and a row with B filled and A empty was an error; it's needed so a PL28 program
+   exported in this format keeps names like `Blocco 1 – Accumulo`.
+
+## Templates and exports
+
+The app writes files in this format ("Scarica template", "Esporta come xlsx", `npm run templates`):
+`note`, `Massimali` (file maxes from row 3), `overall` (`week | giorno | tipo | one column per main lift "Nome (giorno)"`,
+a named variant row per block), `training log` (main rows point at `overall` with `=overall!D3`, a blank row
+between days, `Gruppo` always present) and `meta`. They follow every rule above, so they import like any other file.
