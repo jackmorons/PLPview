@@ -24,7 +24,7 @@
     "@capacitor/ios": "8.5.3",
     "@capacitor/share": "8.0.3",
     "@capawesome/capacitor-file-picker": "8.1.1",
-    "xlsx": "0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.3",
