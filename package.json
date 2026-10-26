@@ -12,7 +12,8 @@
     "example": "node scripts/make-example.js",
     "sync": "cap sync",
     "ios": "cap open ios",
-    "android": "cap open android"
+    "android": "cap open android",
+    "templates": "node scripts/make-templates.js"
   },
   "dependencies": {
     "@capacitor-community/keep-awake": "8.0.1",
@@ -24,6 +25,7 @@
     "@capacitor/ios": "8.5.3",
     "@capacitor/share": "8.0.3",
     "@capawesome/capacitor-file-picker": "8.1.1",
+    "exceljs": "4.4.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {

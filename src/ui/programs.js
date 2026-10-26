@@ -1,9 +1,15 @@
-// The "Programmi" tab (spec §4 P0.9) and the import / update flows.
-// Called by main.js. Data changes go through library.js; files come from native.js.
+// The "Programmi" tab (spec §4 P0.9) and the import / update flows, plus v2's templates, "Esporta come xlsx"
+// and "Verifica file". Called by main.js. Data changes go through library.js; files come from native.js.
+// xlsx-write.js (ExcelJS, ~1 MB) is loaded only when a file is written.
 import { pickFile, shareFile } from "../native.js";
 import { currentRevision, isEmptySummary } from "../programs.js";
+import { parseXlsx, formatIssue } from "../parser.js";
+import { exportFormats, exportProgram } from "../export.js";
+import { templateWorkbook, TEMPLATE_NAMES } from "../templates.js";
 import { dialog, notice, esc, date } from "./dom.js";
 import { showImportErrors, showImportWarnings } from "./errors.js";
+
+const FORMAT_LABEL = { pl28: "Formato PL28", coach: "Formato coach" };
 
 export function renderPrograms(el, ctx) {
   const { lib } = ctx;
@@ -13,7 +19,11 @@ export function renderPrograms(el, ctx) {
   el.innerHTML = `
     <div class="wrap">
       <header class="top"><h1 class="page-title">Programmi</h1>
-        <button class="btn primary" data-import>Importa programma</button></header>
+        <div class="row-btns">
+          <button class="btn primary" data-import>Importa programma</button>
+          <button class="btn" data-template>Scarica template…</button>
+          <button class="btn" data-verify>Verifica file…</button>
+        </div></header>
       ${list.length ? "" : `<div class="card empty-state"><h2>Nessun programma</h2>
         <p class="muted">Importa un file .xlsx nel formato PL per iniziare.</p></div>`}
       ${list.map((p) => {
@@ -37,6 +47,8 @@ export function renderPrograms(el, ctx) {
     </div>`;
 
   el.querySelector("[data-import]").onclick = () => ctx.importProgram();
+  el.querySelector("[data-template]").onclick = () => downloadTemplate();
+  el.querySelector("[data-verify]").onclick = () => verifyFile();
   el.querySelectorAll("[data-open]").forEach((b) => (b.onclick = async () => {
     await lib.setActive(b.dataset.open);
     ctx.go("session");
@@ -171,6 +183,62 @@ async function exportRevision(ctx, p, revisionId) {
   await shareFile(r.fileName, bytes);
 }
 
+/** "Scarica template…": an empty program file in either format, with instructions and a one-week example. */
+async function downloadTemplate() {
+  const format = await dialog({
+    title: "Scarica template",
+    body: `<p>Un file .xlsx già impostato, con un esempio di una settimana in giallo e le istruzioni nel foglio <b>note</b>.
+      Compilalo in Excel o Numbers e importalo.</p>
+      <ul class="summary"><li><b>PL28</b>: accessori uguali per tutto il blocco, l'app toglie 1 serie nelle settimane leggere.</li>
+      <li><b>Coach</b>: ogni sessione scritta per intero, gli accessori possono cambiare ogni settimana.</li></ul>`,
+    actions: [
+      { label: FORMAT_LABEL.pl28, value: "pl28", kind: "primary" },
+      { label: FORMAT_LABEL.coach, value: "coach" },
+      { label: "Annulla", value: null },
+    ],
+  });
+  if (!format) return;
+  await shareFile(TEMPLATE_NAMES[format], await writeXlsx(templateWorkbook(format)));
+}
+
+/** "Esporta come xlsx…": the program as a file to edit, then bring back with "Aggiorna da xlsx…". */
+async function exportAsXlsx(p) {
+  const model = currentRevision(p).model;
+  const formats = exportFormats(model);
+  const no = formats.find((f) => !f.ok);
+  const format = await dialog({
+    title: `Esporta ${p.name}`,
+    body: `<p>Modifica il file in Excel o Numbers, poi riportalo con <b>Aggiorna da xlsx…</b>: vedrai cosa cambia prima di confermare.</p>
+      <p class="muted">Nel foglio Massimali ci sono i massimali del file; quelli modificati nell'app restano nell'app.</p>
+      ${no ? `<p class="muted">${esc(no.reason)}</p>` : ""}`,
+    actions: [
+      ...formats.filter((f) => f.ok).map((f, i) => ({ label: FORMAT_LABEL[f.format], value: f.format, kind: f.format === model.format || i === 0 ? "primary" : undefined })),
+      { label: "Annulla", value: null },
+    ],
+  });
+  if (!format) return;
+  await shareFile(`${p.name}.xlsx`, await writeXlsx(exportProgram(model, format)));
+}
+
+/** "Verifica file…": runs the parser and shows the errors, or OK and what it found. Saves nothing. */
+async function verifyFile() {
+  const file = await pickFile();
+  if (!file) return;
+  const r = parseXlsx(file.bytes);
+  if (!r.ok) return showImportErrors(file.name, r, { verify: true });
+  const m = r.model;
+  await notice("File valido", `
+    <p><b>${esc(file.name)}</b> rispetta il formato ${m.format === "coach" ? "coach" : "PL28"} e si può importare. Non è stato salvato niente.</p>
+    <ul class="summary"><li>${m.weeks.length} settimane, ${m.blocks.length} blocchi</li><li>Giorni: ${esc(m.days.join(", "))}</li>
+      <li>${m.lifts.length ? `Massimali: ${esc(m.lifts.map((l) => l.name).join(", "))}` : "Senza massimali: carichi fissi"}</li></ul>
+    ${r.warnings.length ? `<p>Avvisi:</p><pre class="errlist">${esc(r.warnings.map(formatIssue).join("\n"))}</pre>` : ""}`);
+}
+
+async function writeXlsx(description) {
+  const { writeWorkbook } = await import("../xlsx-write.js");
+  return writeWorkbook(description);
+}
+
 /** Rename, duplicate, export, priority groups, delete. */
 async function showMore(ctx, id) {
   const { lib } = ctx;
@@ -178,6 +246,7 @@ async function showMore(ctx, id) {
   const choice = await dialog({
     title: p.name,
     actions: [
+      { label: "Esporta come xlsx…", value: "xlsx", kind: "primary" },
       { label: "Rinomina", value: "rename" },
       { label: "Duplica", value: "duplicate" },
       { label: "Esporta file originale", value: "export" },
@@ -186,7 +255,9 @@ async function showMore(ctx, id) {
       { label: "Annulla", value: null },
     ],
   });
-  if (choice === "rename") {
+  if (choice === "xlsx") {
+    await exportAsXlsx(p);
+  } else if (choice === "rename") {
     const r = await dialog({
       title: "Rinomina",
       body: `<input type="text" value="${esc(p.name)}" aria-label="Nome del programma">`,

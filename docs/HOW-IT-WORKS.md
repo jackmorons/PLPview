@@ -36,7 +36,10 @@ dist/                              ← generated, never edit
 | `src/storage.js` | save/load files: phone storage on device, localStorage in the browser | **yes** |
 | `src/native.js` | file picker, share sheet, clipboard (haptics, keep-awake in milestone 5) | **yes** |
 | `src/ui/session.js` | Sessione tab: maxes, week/day selectors, the session sheet, swipe | no |
-| `src/ui/programs.js` | Programmi tab, plus the import and "Aggiorna da xlsx" flows | no |
+| `src/export.js` | program model → workbook description in the PL28 or coach format ("Esporta come xlsx") | no (pure) |
+| `src/templates.js` | the two empty templates: a one-week example exported with filling instructions | no (pure) |
+| `src/xlsx-write.js` | workbook description → .xlsx bytes with ExcelJS (styles, dropdowns, comments); loaded only when exporting | no |
+| `src/ui/programs.js` | Programmi tab: import, "Aggiorna da xlsx", "Scarica template", "Esporta come xlsx", "Verifica file" | no |
 | `src/ui/note.js`, `ui/tools.js` | Note tab; Strumenti tab (placeholder until milestone 5) | no |
 | `src/ui/errors.js`, `ui/dom.js` | import errors screen; in-app dialogs and HTML escaping | no |
 | `src/main.js` | starts the app, loads the saved data, draws the tab bar, switches tabs | no |
@@ -86,6 +89,20 @@ for lifts that still exist (`carryMaxes`) and pulls the last week/day back insid
 - `tests/coach.test.js`: the coach format: PL28_coach.xlsx, the same sessions as PL28.xlsx, PL27's errors, week types.
 - `tests/example.test.js`: `examples/example.xlsx` imports cleanly.
 - `tests/library.test.js`: saving and reloading, several programs, update with change summary, already imported, restore, delete.
+- `tests/export.test.js`: every fixture exported and imported again gives the same program, in each format it fits;
+  the kg cached in exported formulas match the app; both templates import cleanly.
+
+## Editing a program in Excel (v2)
+
+1. **Programmi → Altro… → Esporta come xlsx…**: `export.js` turns the stored program into rows and formulas,
+   `xlsx-write.js` (ExcelJS, downloaded into the page only now, because it's ~1 MB) writes the file, and
+   `native.js → shareFile()` hands it to the share sheet (or downloads it in the browser).
+2. You edit it in Excel or Numbers.
+3. **Aggiorna da xlsx…** reads it back like any import: you see the change summary, your edited maxes stay.
+
+The PL28 format can only describe programs whose accessories are the same through each block. `export.js → toV1()`
+rebuilds that shape and expands it again with the same `expandV1()` the parser uses: if the result isn't identical
+to the program, PL28 isn't offered.
 
 ## Glossary
 

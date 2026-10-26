@@ -4,16 +4,17 @@ import { formatIssue } from "../parser.js";
 import { copyText } from "../native.js";
 import { dialog, esc } from "./dom.js";
 
-export async function showImportErrors(fileName, result) {
+/** `verify`: the file was only checked ("Verifica file"), not imported. */
+export async function showImportErrors(fileName, result, { verify = false } = {}) {
   const lines = result.errors.map(formatIssue);
   const warn = result.warnings.map(formatIssue);
   const text = [`${fileName}: ${lines.length} ${lines.length === 1 ? "errore" : "errori"}`, ...lines,
     ...(warn.length ? ["", "Avvisi:", ...warn] : [])].join("\n");
   await dialog({
-    title: "File non importato",
+    title: verify ? "File non valido" : "File non importato",
     body: `
       <p><b>${esc(fileName)}</b> non rispetta il formato: ${lines.length === 1 ? "c'è 1 problema" : `ci sono ${lines.length} problemi`}.
-      Il programma attuale non è stato toccato. Correggi il file e riprova.</p>
+      ${verify ? "Correggi il file e verificalo di nuovo." : "Il programma attuale non è stato toccato. Correggi il file e riprova."}</p>
       <pre class="errlist">${esc(lines.join("\n"))}</pre>
       ${warn.length ? `<p>Avvisi (non bloccano l'import):</p><pre class="errlist">${esc(warn.join("\n"))}</pre>` : ""}
       <button class="btn" data-copy>Copia elenco</button>`,

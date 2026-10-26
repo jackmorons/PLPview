@@ -104,7 +104,7 @@ export function parseCoach(wb, logName, err, warnings) {
       const bi = ov.weeks.get(w.n)?.block;
       if (bi == null) continue;
       let b = blocks.find((x) => x._ov === bi);
-      if (!b) { b = { name: `Blocco ${blocks.length + 1}`, firstWeek: w.n, lastWeek: w.n, _ov: bi }; blocks.push(b); }
+      if (!b) { b = { name: ov.blockNames[bi] || `Blocco ${blocks.length + 1}`, firstWeek: w.n, lastWeek: w.n, _ov: bi }; blocks.push(b); }
       b.lastWeek = w.n;
       w.block = blocks.indexOf(b);
     }
@@ -180,8 +180,9 @@ function plain(tpl, ref, ctx) {
 
 /**
  * `overall` in PL27 layout: A week, B dates, an optional `tipo` column, then slot columns (empty columns are
- * separators). A row with A and B empty and some slot text is a variant row and starts a new block.
- * Returns {weeks: Map(n → {row, type, dates, block})}.
+ * separators). A row with A empty and something in B or a slot is a variant row and starts a new block;
+ * B holds the block's name (optional).
+ * Returns {weeks: Map(n → {row, type, dates, block}), blockNames: [name or null per block]}.
  */
 function readOverall(ws, ctx) {
   const { err } = ctx;
@@ -199,6 +200,7 @@ function readOverall(ws, ctx) {
   }
 
   const weeks = new Map();
+  const blockNames = [];
   let block = -1;
   const last = lastRow(ws);
   for (let r = 2; r <= last; r++) {
@@ -206,8 +208,7 @@ function readOverall(ws, ctx) {
     const b = text(ws, r, 2);
     const slotText = slotCols.some((c) => !isEmpty(getCell(ws, r, c)));
     if (isEmpty(a)) {
-      if (!b && slotText) block++; // variant row
-      else if (b) err(`overall!A${r}`, "riga con le date ma senza numero di settimana");
+      if (b || slotText) blockNames[++block] = b || null; // variant row
       continue;
     }
     const n = weekNumber(a.v);
@@ -223,7 +224,7 @@ function readOverall(ws, ctx) {
     for (const c of slotCols) resolve({ cell: getCell(ws, r, c), ref: `overall!${col(c)}${r}` }, ctx);
     weeks.set(n, { row: r, type, dates: b || null, block: block >= 0 ? block : null });
   }
-  return { weeks };
+  return { weeks, blockNames };
 }
 
 function cap(s) {

@@ -18,3 +18,7 @@ Tick each box on both platforms. Items marked *(m3)*, *(m4)* need that milestone
 | 10 | *(m4)* Restore an old revision → it's current, history grows by one | ☐ | ☐ |
 | 11 | *(m4)* Airplane mode: launch, import, switch weeks; fonts look right | ☐ | ☐ |
 | 12 | *(m3)* Swipe left/right changes day; light and dark theme follow the system | ☐ | ☐ |
+| 13 | *(v2)* "Scarica template…" both formats: the share sheet opens; the file opens in Excel/Numbers with yellow cells and the week-type dropdown | ☐ | ☐ |
+| 14 | *(v2)* Export PL28 as xlsx, change one prescription and one max in Numbers, save as .xlsx, "Aggiorna da xlsx": the summary shows the change | ☐ | ☐ |
+| 15 | *(v2)* Same in Excel for iPhone/Android: formulas still recalculate when a max changes in the sheet | ☐ | ☐ |
+| 16 | *(v2)* "Verifica file…" on PL27.xlsx lists the errors; on PL28.xlsx says it's valid; nothing is imported | ☐ | ☐ |
