@@ -34,6 +34,25 @@ export function rirPlusOne(s) {
 
 const text = (s) => (s ? { parts: [s] } : null);
 
+/** An accessory's Rep or Intensità: a template since 2026-10, plain text in programs saved before. null if empty. */
+const accTemplate = (x) => (typeof x === "string" ? text(x) : x?.parts.length ? x : null);
+
+/** Template parts with adjacent text pieces joined and empty ones dropped. */
+function joinParts(parts) {
+  const out = [];
+  for (const p of parts) {
+    if (p === "") continue;
+    if (typeof p === "string" && typeof out[out.length - 1] === "string") out[out.length - 1] += p;
+    else out.push(p);
+  }
+  return out;
+}
+
+/** Light-week intensity: RIR +1 when it's text starting with "RIR"; a load or anything else is unchanged. */
+function lightIntensity(tpl) {
+  return tpl && tpl.parts.every((p) => typeof p === "string") ? text(rirPlusOne(tpl.parts.join(""))) : tpl;
+}
+
 /**
  * PL28-format data (schema 1: slots × weeks + accessories per block) → schema 2 sessions.
  * Days are listed in the model's day order; a day with nothing in it that week is left out.
@@ -55,9 +74,10 @@ export function expandV1(v1) {
         if (a.day !== letter || a.volumeOnly) continue;
         const sets = a.sets[w.block] - (light ? 1 : 0);
         if (sets <= 0) continue;
+        const intensity = accTemplate(a.intensity);
         items.push({ kind: "acc", name: a.name, instructions: a.instructions || null,
-          prescription: { parts: [`${sets}x${a.reps}`] }, load: text(light ? rirPlusOne(a.intensity) : a.intensity),
-          group: a.group || null, note: null });
+          prescription: { parts: joinParts([`${sets}x`, ...(accTemplate(a.reps)?.parts || [])]) },
+          load: light ? lightIntensity(intensity) : intensity, group: a.group || null, note: null });
       }
       if (!items.length) continue;
       // The PL28 format has no notes column: the reminders it used to compute become the day's first note.
@@ -67,7 +87,7 @@ export function expandV1(v1) {
       if (notes.length) items[0] = { ...items[0], note: text(notes.join(" · ")) };
       days.push({ letter, items });
     }
-    return { n: w.number, type, dates: null, block: w.block, days };
+    return { n: w.number, type, dates: w.dates ?? null, block: w.block, days };
   });
 
   const blocks = v1.blocks.map((b, bi) => {

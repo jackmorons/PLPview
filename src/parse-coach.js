@@ -5,7 +5,7 @@
 import { validateProgram, weekType, WEEK_TYPES } from "./model.js";
 import {
   parseFormula, bindLoads, parseTextTokens, parseMassimali, parseNotes, weekNumber, checkMerges, locate,
-  getCell, isEmpty, cellText, text, lastRow, lastCol, col,
+  findSheet, scanOverall, getCell, isEmpty, cellText, text, lastRow, col,
 } from "./parse-common.js";
 
 const LOG_HEADERS = ["settimana", "giorno", "alzata", "istruzioni", "serie x rep", "kg/rpe", "carico usato", "difficoltà", "note"];
@@ -15,9 +15,10 @@ const OVERALL_REF = /^\s*=?\s*overall!\$?([A-Z]{1,3})\$?(\d+)\s*$/i;
 export function parseCoach(wb, logName, err, warnings) {
   const src = {};
   const ws = wb.Sheets[logName];
-  const lifts = wb.Sheets.Massimali ? parseMassimali(wb.Sheets.Massimali, err, src) : null;
-  const ctx = { wb, lifts, err };
-  const ov = wb.Sheets.overall ? readOverall(wb.Sheets.overall, ctx) : null;
+  const massimali = findSheet(wb, "Massimali");
+  const lifts = massimali ? parseMassimali(massimali, err, src) : null;
+  const ctx = { overall: findSheet(wb, "overall"), lifts, err };
+  const ov = ctx.overall ? readOverall(ctx.overall, ctx) : null;
 
   // ---- headers
   checkMerges(ws, logName, err);
@@ -92,10 +93,8 @@ export function parseCoach(wb, logName, err, warnings) {
   }
   weeks.sort((a, b) => a.n - b.n);
 
-  // Day order: as they first appear in week 1, then any other letters alphabetically.
-  const first = weeks[0]?.days.map((d) => d.letter) || [];
-  const others = [...new Set(weeks.flatMap((w) => w.days.map((d) => d.letter)))].filter((d) => !first.includes(d)).sort();
-  const days = [...first, ...others];
+  // Day order: alphabetical, as in the PL28 format (decided 2026-10-26).
+  const days = [...new Set(weeks.flatMap((w) => w.days.map((d) => d.letter)))].sort();
 
   // Blocks come from overall's variant rows; weeks not in overall have no block.
   const blocks = [];
@@ -121,7 +120,7 @@ export function parseCoach(wb, logName, err, warnings) {
     days,
     weeks,
     blocks: blocks.map(({ _ov, ...b }) => b),
-    notes: parseNotes(wb.Sheets.note),
+    notes: parseNotes(findSheet(wb, "note")),
   };
   for (const e of validateProgram(model)) err(locate(src, e.path), e.msg);
   return model;
@@ -158,7 +157,7 @@ function resolve({ cell, ref }, ctx, depth = 0) {
   }
   const m = OVERALL_REF.exec(cell.f);
   if (m) {
-    const ow = ctx.wb.Sheets.overall;
+    const ow = ctx.overall;
     if (!ow) { ctx.err(ref, "la formula punta a overall, ma il foglio overall non c'è"); return null; }
     if (depth > 10) { ctx.err(ref, "riferimenti a overall in cerchio"); return null; }
     const target = `${m[1].toUpperCase()}${m[2]}`;
@@ -179,50 +178,29 @@ function plain(tpl, ref, ctx) {
 }
 
 /**
- * `overall` in PL27 layout: A week, B dates, an optional `tipo` column, then slot columns (empty columns are
- * separators). A row with A empty and something in B or a slot is a variant row and starts a new block;
- * B holds the block's name (optional).
+ * `overall` in the shared layout (parse-common.js → scanOverall): week | giorno (dates) | optional tipo | lift columns.
+ * Each block row starts a new block, named by B if it has a name.
  * Returns {weeks: Map(n → {row, type, dates, block}), blockNames: [name or null per block]}.
  */
 function readOverall(ws, ctx) {
   const { err } = ctx;
   checkMerges(ws, "overall", err);
-  if (text(ws, 1, 1).toLowerCase() !== "week") err("overall!A1", `intestazione attesa "week", trovato "${text(ws, 1, 1)}"`);
-  if (text(ws, 1, 2).toLowerCase() !== "giorno") err("overall!B1", `intestazione attesa "giorno", trovato "${text(ws, 1, 2)}"`);
-  const lc = lastCol(ws);
-  let tipoCol = null;
-  const slotCols = [];
-  for (let c = 3; c <= lc; c++) {
-    const h = text(ws, 1, c);
-    if (!h) continue;
-    if (h.toLowerCase() === "tipo") tipoCol = c;
-    else slotCols.push(c);
-  }
-
   const weeks = new Map();
   const blockNames = [];
-  let block = -1;
-  const last = lastRow(ws);
-  for (let r = 2; r <= last; r++) {
-    const a = getCell(ws, r, 1);
-    const b = text(ws, r, 2);
-    const slotText = slotCols.some((c) => !isEmpty(getCell(ws, r, c)));
-    if (isEmpty(a)) {
-      if (b || slotText) blockNames[++block] = b || null; // variant row
-      continue;
-    }
-    const n = weekNumber(a.v);
-    if (n == null) { err(`overall!A${r}`, `numero di settimana "${a.v}" non valido: serve un intero`); continue; }
+  const scan = scanOverall(ws, err, ["giorno"]);
+  if (!scan) return { weeks, blockNames };
+
+  for (const row of scan.rows) {
+    const { r } = row;
+    if (row.kind === "block") { blockNames.push(row.name); continue; }
+    const n = weekNumber(row.a.v);
+    if (n == null) { err(`overall!A${r}`, `numero di settimana "${row.a.v}" non valido: serve un intero`); continue; }
     if (weeks.has(n)) { err(`overall!A${r}`, `settimana ${n} ripetuta in overall`); continue; }
-    let type = "normale";
-    if (tipoCol) {
-      const raw = text(ws, r, tipoCol);
-      type = weekType(raw);
-      if (!type) { err(`overall!${col(tipoCol)}${r}`, `tipo di settimana "${raw}" non valido: usa ${WEEK_TYPES.join(", ")}`); type = "normale"; }
-    }
-    // Check every slot cell now, so a broken formula in overall is reported even if the log doesn't use it.
-    for (const c of slotCols) resolve({ cell: getCell(ws, r, c), ref: `overall!${col(c)}${r}` }, ctx);
-    weeks.set(n, { row: r, type, dates: b || null, block: block >= 0 ? block : null });
+    let type = weekType(row.type);
+    if (!type) { err(row.typeRef, `tipo di settimana "${row.type}" non valido: usa ${WEEK_TYPES.join(", ")}`); type = "normale"; }
+    // Check every lift cell now, so a broken formula in overall is reported even if the log doesn't use it.
+    for (const { c } of scan.liftCols) resolve({ cell: getCell(ws, r, c), ref: `overall!${col(c)}${r}` }, ctx);
+    weeks.set(n, { row: r, type, dates: row.dates, block: blockNames.length ? blockNames.length - 1 : null });
   }
   return { weeks, blockNames };
 }

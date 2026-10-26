@@ -1,8 +1,9 @@
-# Import format: coach (PL27 layout)
+# Import format: coach
 
 The contract for coach-format files. **`fixtures/PL28_coach.xlsx` is the reference implementation.**
 The original brief is in `FORMAT-COACH-SPEC.md`; where this file differs, this file is what the parser does
-(differences listed at the end). The PL28 format is in `FORMAT.md`; both produce the same program model.
+(differences listed at the end). The PL28 format is in `FORMAT.md`; both produce the same program model, and
+both share `Massimali`, `overall`, `note` and `meta`: only `training log` (here) and `accessori` (PL28) differ.
 
 **In this format every session is written out**, one row per exercise, so accessories, sets, reps and intensity
 can change from week to week. What you see in the sheet is what the app shows: no automatic set rules.
@@ -26,7 +27,11 @@ can change from week to week. What you see in the sheet is what the app shows: n
 | `overall` | no | Week types, dates, blocks; holds main-lift cells the log points at |
 | `Massimali` | no | As in the PL28 format. Without it loads are fixed text and the app hides the max editor |
 | `note` | no | Free text, column A, shown in the Note tab |
+| `meta` | no | Format version, as in `FORMAT.md` |
 | anything else | ignored | |
+
+Sheet names ignore capitals and spaces at the ends (`Overall`, `MASSIMALI`); two sheets whose names differ only in
+capitals are an error.
 
 ## `training log`
 
@@ -53,8 +58,7 @@ Columns after J are ignored. A J header other than `Gruppo` is ignored with a wa
 - Each week + day is **one run of rows** (blank separator rows inside it are fine). The same week + day appearing
   again later is an error naming both rows: `settimana 16 giorno A ripetuta alle righe 408 e 439`.
 - Weeks are numbered 1, 2, 3… with no gaps; each week has at least one day.
-- Days are shown in the order they first appear in week 1, then any other letters alphabetically.
-  Items are shown in row order.
+- Days are shown in alphabetical order, as in the PL28 format. Items are shown in row order.
 
 **Cell values** (D, E, F, I):
 1. **Plain text**, shown as written. Load placeholders `{Squat .57}kg` work as in the PL28 format (full lift name).
@@ -75,19 +79,23 @@ Numbers are shown in Italian format (`110`, `112,5`). D (instructions) can't con
 
 ## `overall` (optional)
 
+The layout shared with the PL28 format (`FORMAT.md` → `overall`), headers ignoring capitals:
 - `A1 = week`, `B1 = giorno` (week dates as free text, e.g. `6-12 /10`).
 - An optional column headed `tipo` holds the **week type** (see below). It isn't a lift column.
-- Other headed columns are lift columns; empty columns between them are allowed.
+- Other headed columns are lift columns; empty columns between them are allowed. Headers are free text here
+  (`Squat stress.`, or `Squat stress (A)` as in PL28): the day comes from the log.
+- Empty rows are skipped; **two empty rows in a row end the sheet**.
 - **Variant row**: A empty, and a block name in B or some text in a lift column. It starts a new block, named by B
   (`Accumulo`), or `Blocco 1`, `Blocco 2`, … when B is empty. Files exported by the app always write the name.
-- **Week row**: A = week number; B = optional dates; lift cells as in the log (text, load formula, reference).
+- **Week row**: A = week number; B = optional dates; `tipo`; lift cells as in the log (text, load formula, reference).
+- A row with A empty and nothing but a week type is an error.
   Every lift cell is checked, even if the log doesn't point at it.
 - Weeks present in `overall` but not in the log (or the reverse) are listed as **warnings**, not errors.
 
 ## Week types (both formats)
 
 One fixed list, matched ignoring capitals and spaces at the ends; empty = `normale`. Anything else is an error
-naming the cell. Coach format: `overall` column `tipo`. PL28 format: `overall` column B `fase`.
+naming the cell. Both formats: `overall` column `tipo` (PL28 files in the older layout: column B `fase`).
 
 | Type | Badge | Meaning shown as banner |
 |---|---|---|
@@ -105,7 +113,7 @@ naming the cell. Coach format: `overall` column `tipo`. PL28 format: `overall` c
 **In this format the type never changes sets or loads.** In the PL28 format, `transizione`, `scarico` and `test`
 weeks get one accessory set less and RIR +1.
 
-## Differences from `FORMAT-COACH-SPEC.md` (decided 2026-10-25)
+## Differences from `FORMAT-COACH-SPEC.md` (decided 2026-10-25, added to later)
 
 1. **Format detection**: `accessori` wins over `training log`, because `PL28.xlsx` has both sheets.
 2. **Placeholders** use the full lift name (`{Squat .57}`), not a letter, as in the PL28 format.
@@ -117,10 +125,13 @@ weeks get one accessory set less and RIR +1.
 6. **Block names** (2026-10-26, approved by Jack): a variant row may carry the block's name in B. The brief named
    blocks only `Blocco 1…n`, and a row with B filled and A empty was an error; it's needed so a PL28 program
    exported in this format keeps names like `Blocco 1 – Accumulo`.
+7. **Same reading rules as PL28** (2026-10-26, approved by Jack): sheet names ignore capitals, days are alphabetical
+   (the brief said "order of first appearance in week 1"), and in `overall` two empty rows end the sheet.
 
 ## Templates and exports
 
 The app writes files in this format ("Scarica template", "Esporta come xlsx", `npm run templates`):
 `note`, `Massimali` (file maxes from row 3), `overall` (`week | giorno | tipo | one column per main lift "Nome (giorno)"`,
 a named variant row per block), `training log` (main rows point at `overall` with `=overall!D3`, a blank row
-between days, `Gruppo` always present) and `meta`. They follow every rule above, so they import like any other file.
+between days, `Gruppo` always present) and `meta` (`formatVersion = 2`). They follow every rule above, so they import
+like any other file. The `Massimali`, `overall` and `note` sheets are written exactly as in a PL28 export.

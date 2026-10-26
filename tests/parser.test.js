@@ -42,7 +42,9 @@ describe("PL28 structure", () => {
     const saved = {
       schemaVersion: 1, ...v1,
       lifts: v1.lifts.map(({ defaultMax, ...l }) => ({ ...l, max: defaultMax })),
-      weeks: v1.weeks.map(({ type, ...w }) => ({ ...w, phase: type === "normale" ? "" : type === "test" ? "TEST" : type })),
+      weeks: v1.weeks.map(({ type, dates, ...w }) => ({ ...w, phase: type === "normale" ? "" : type === "test" ? "TEST" : type })),
+      // Rep and Intensità were plain strings then.
+      accessories: v1.accessories.map((x) => ({ ...x, reps: x.reps?.parts.join("") ?? "", intensity: x.intensity?.parts.join("") ?? "" })),
     };
     expect(migrate(JSON.parse(JSON.stringify(saved)))).toEqual(m);
   });
@@ -99,7 +101,7 @@ describe("rejections (spec §7.5)", () => {
   it("rejects a format version newer than the app", () => {
     const r = parseEditedPL28((wb) => {
       wb.SheetNames.push("meta");
-      wb.Sheets.meta = { "!ref": "A1:B1", A1: { t: "s", v: "formatVersion" }, B1: { t: "n", v: 2 } };
+      wb.Sheets.meta = { "!ref": "A1:B1", A1: { t: "s", v: "formatVersion" }, B1: { t: "n", v: 3 } };
     });
     expect(refs(r)).toEqual(["meta!B1"]);
   });

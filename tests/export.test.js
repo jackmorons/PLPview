@@ -73,10 +73,10 @@ describe("what the exported file contains", () => {
     expect(r.model.blocks.map((b) => b.name)).toEqual(model("PL28.xlsx").blocks.map((b) => b.name));
   });
 
-  it("Massimali holds the file's maxes and a meta sheet says format 1", async () => {
+  it("Massimali holds the file's maxes and a meta sheet says format 2", async () => {
     const wb = XLSX.read(await writeWorkbook(exportProgram(model("PL28.xlsx"), "pl28")), { type: "array" });
     expect(["B3", "B4", "B5"].map((c) => wb.Sheets.Massimali[c].v)).toEqual(model("PL28.xlsx").lifts.map((l) => l.defaultMax));
-    expect([wb.Sheets.meta.A1.v, wb.Sheets.meta.B1.v]).toEqual(["formatVersion", 1]);
+    expect([wb.Sheets.meta.A1.v, wb.Sheets.meta.B1.v]).toEqual(["formatVersion", 2]);
   });
 
   for (const format of ["pl28", "coach"]) {
@@ -103,7 +103,7 @@ describe("what the exported file contains", () => {
     const long = "x".repeat(600);
     m.weeks[0].days[0].items[0].prescription.parts[2] += long; // "4x5 ", load, "kg…"
     const wb = XLSX.read(await writeWorkbook(exportProgram(m, "pl28")), { type: "array", cellFormula: true });
-    expect(wb.Sheets.overall.C3.f.match(/"[^"]*"/g).every((s) => s.length <= 257)).toBe(true);
+    expect(wb.Sheets.overall.D3.f.match(/"[^"]*"/g).every((s) => s.length <= 257)).toBe(true);
     expect(sameProgram(parseXlsx(await writeWorkbook(exportProgram(m, "pl28"))).model, m)).toBe(true);
   });
 });
@@ -125,8 +125,7 @@ describe("templates", () => {
       const wb = new ExcelJS.Workbook();
       await wb.xlsx.load(await writeWorkbook(templateWorkbook(format)));
       const ov = wb.getWorksheet("overall");
-      const typeCell = format === "pl28" ? "B3" : "C3";
-      expect(ov.getCell(typeCell).dataValidation.formulae[0]).toMatch(/normale,scarico,transizione/);
+      expect(ov.getCell("C3").dataValidation.formulae[0]).toMatch(/normale,scarico,transizione/);
       expect(wb.getWorksheet("note").getCell("A3").value).toBe("COME SI COMPILA");
       expect(ov.getCell("A3").fill.fgColor.argb).toBe("FFFFF2CC");
       expect(wb.getWorksheet("Massimali").getCell("B3").fill.fgColor.argb).toBe("FFFFF2CC");

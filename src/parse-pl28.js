@@ -1,15 +1,17 @@
 // The PL28 format (docs/FORMAT.md): Massimali + overall (slots × weeks) + accessori (sets per block).
 // Reads the sheets into the schema-1 shape, then model.js → expandV1() turns it into explicit sessions
 // (schema 2), applying −1 set / RIR +1 to transizione, scarico and test weeks.
+// `overall` comes in the layout shared with the coach format (week | giorno | tipo | …) or the older one
+// (week | fase | …); parse-common.js → scanOverall() reads both.
 // Called by parser.js. Pure: no DOM, no Capacitor.
 import { expandV1, validateProgram, weekType, WEEK_TYPES } from "./model.js";
 import {
   parseFormula, bindLoads, parseTextTokens, parseMassimali, parseNotes, weekNumber, checkMerges, locate,
-  getCell, isEmpty, cellText, text, lastRow, col,
+  findSheet, sameHeader, scanOverall, getCell, isEmpty, cellText, text, col,
 } from "./parse-common.js";
 
 const ACC_HEADERS = ["Giorno", "Esercizio", "Istruzioni", "Gruppo", "Rep", "Intensità"];
-const SLOT_HEADER = /^(.+?) \(([A-Z])\)$/;
+const SLOT_HEADER = /^(.+?) \(([A-Za-z])\)$/;
 
 export function parsePL28(wb, err) {
   const src = {}; // model path → cell, so validateProgram's errors can name a cell
@@ -22,15 +24,11 @@ export function parsePL28(wb, err) {
 
 /** The sheets as schema 1 (slots × weeks, accessories per block). Exported for the migration test. */
 export function readV1(wb, err, src = {}) {
-  for (const name of ["Massimali", "overall"]) {
-    if (!wb.Sheets[name]) {
-      const near = wb.SheetNames.find((s) => s.toLowerCase() === name.toLowerCase());
-      err(name, near ? `foglio mancante (trovato "${near}": il nome deve essere identico, maiuscole comprese)` : "foglio obbligatorio mancante");
-    }
-  }
-  const lifts = wb.Sheets.Massimali ? parseMassimali(wb.Sheets.Massimali, err, src) : null;
-  const ov = wb.Sheets.overall ? parseOverall(wb.Sheets.overall, lifts, err, src) : null;
-  const acc = parseAccessori(wb.Sheets.accessori, ov ? ov.blocks.length : null, err);
+  const sheets = { Massimali: findSheet(wb, "Massimali"), overall: findSheet(wb, "overall") };
+  for (const [name, ws] of Object.entries(sheets)) if (!ws) err(name, "foglio obbligatorio mancante");
+  const lifts = sheets.Massimali ? parseMassimali(sheets.Massimali, err, src) : null;
+  const ov = sheets.overall ? parseOverall(sheets.overall, lifts, err, src) : null;
+  const acc = parseAccessori(findSheet(wb, "accessori"), ov ? ov.blocks.length : null, lifts, err);
   if (!lifts || !ov || !acc) return null;
 
   const v1 = {
@@ -41,63 +39,54 @@ export function readV1(wb, err, src = {}) {
     slots: ov.slots,
     prescriptions: ov.prescriptions,
     accessories: acc,
-    notes: parseNotes(wb.Sheets.note),
+    notes: parseNotes(findSheet(wb, "note")),
   };
   // expandV1 needs every block to have weeks and every week to be numbered; stop here if not.
   const empty = v1.blocks.findIndex((_, bi) => !v1.weeks.some((w) => w.block === bi));
   if (empty >= 0) { err(src[`blocks.${empty}`], `il blocco "${v1.blocks[empty].name}" non ha settimane`); return null; }
-  if (!v1.weeks.length) { err("overall!A3", "nessuna settimana"); return null; }
+  if (!v1.weeks.length) { err("overall!A2", "nessuna settimana"); return null; }
   return v1;
 }
 
 function parseOverall(ws, lifts, err, src) {
   checkMerges(ws, "overall", err);
-  let ok = true;
-  if (text(ws, 1, 1) !== "week") { err("overall!A1", `intestazione attesa "week", trovato "${text(ws, 1, 1)}"`); ok = false; }
-  if (text(ws, 1, 2) !== "fase") { err("overall!B1", `intestazione attesa "fase", trovato "${text(ws, 1, 2)}"`); ok = false; }
+  const scan = scanOverall(ws, err, ["giorno", "fase"]);
+  if (!scan) return null;
 
+  let ok = true;
   const slots = [];
-  for (let c = 3; text(ws, 1, c); c++) {
-    const h = text(ws, 1, c);
-    const m = SLOT_HEADER.exec(h);
-    if (!m) { err(`overall!${col(c)}1`, `intestazione "${h}" non valida: serve "Nome (X)", con X lettera maiuscola del giorno`); ok = false; continue; }
-    slots.push({ name: m[1], day: m[2], _col: c });
+  for (const { c, header } of scan.liftCols) {
+    const m = SLOT_HEADER.exec(header);
+    if (!m) { err(`overall!${col(c)}1`, `intestazione "${header}" non valida: serve "Nome (X)", con X lettera del giorno`); ok = false; continue; }
+    slots.push({ name: m[1], day: m[2].toUpperCase(), _col: c });
   }
-  if (!slots.length && ok) { err("overall!C1", "nessuna colonna di alzata: le intestazioni partono da C1"); ok = false; }
+  if (!slots.length && ok) { err(`overall!${col(scan.tipoCol ? scan.tipoCol + 1 : 3)}1`, "nessuna colonna di alzata"); ok = false; }
   if (!ok) return null;
 
   const blocks = [];
   const weeks = [];
   const prescriptions = [];
-  const last = lastRow(ws);
-  for (let r = 2; r <= last; r++) {
-    const aCell = getCell(ws, r, 1);
-    const aEmpty = isEmpty(aCell);
-    const b = text(ws, r, 2);
-    const slotEmpty = slots.every((s) => isEmpty(getCell(ws, r, s._col)));
-    if (aEmpty && !b && slotEmpty) break; // first empty row ends the data
-
-    if (aEmpty && b) {
+  for (const row of scan.rows) {
+    const { r } = row;
+    if (row.kind === "block") {
       src[`blocks.${blocks.length}`] = `overall!B${r}`;
-      blocks.push({ name: b, variants: slots.map((s) => text(ws, r, s._col)) });
+      blocks.push({ name: row.name || `Blocco ${blocks.length + 1}`, variants: slots.map((s) => text(ws, r, s._col)) });
       continue;
     }
-    if (aEmpty) { err(`overall!A${r}`, "riga senza numero di settimana né nome del blocco"); continue; }
+    const n = weekNumber(row.a.v);
+    if (n == null) { err(`overall!A${r}`, `numero di settimana "${row.a.v}" non valido: serve un intero`); continue; }
+    if (!blocks.length) { err(`overall!A${r}`, "prima della prima settimana serve una riga di blocco (A vuota, nome del blocco in B)"); return null; }
 
-    const n = weekNumber(aCell.v);
-    if (n == null) { err(`overall!A${r}`, `numero di settimana "${aCell.v}" non valido: serve un intero`); continue; }
-    if (!blocks.length) { err("overall!B2", "la prima riga dopo le intestazioni deve essere un blocco (A vuota, nome del blocco in B)"); return null; }
-
-    const type = weekType(b);
-    if (!type) err(`overall!B${r}`, `tipo di settimana "${b}" non valido: usa ${WEEK_TYPES.join(", ")}`);
+    const type = weekType(row.type);
+    if (!type) err(row.typeRef, `tipo di settimana "${row.type}" non valido: usa ${WEEK_TYPES.join(", ")}`);
     const wi = weeks.length;
     src[`weeks.${wi}.n`] = `overall!A${r}`;
-    src[`weeks.${wi}.type`] = `overall!B${r}`;
+    src[`weeks.${wi}.type`] = row.typeRef || `overall!A${r}`;
     src[`weeks.${wi}`] = `overall!A${r}`;
-    weeks.push({ number: n, type: type || "normale", block: blocks.length - 1 });
+    weeks.push({ number: n, type: type || "normale", block: blocks.length - 1, dates: row.dates });
     prescriptions.push(slots.map((s) => parsePrescription(getCell(ws, r, s._col), `overall!${col(s._col)}${r}`, lifts, err)));
   }
-  if (!blocks.length) err("overall!B2", "nessun blocco: la prima riga dopo le intestazioni deve essere un blocco");
+  if (!blocks.length) err("overall!B2", "nessun blocco: prima della prima settimana serve una riga di blocco");
 
   return { blocks, weeks, prescriptions, slots: slots.map(({ _col, ...s }) => s) };
 }
@@ -118,16 +107,20 @@ function parsePrescription(cell, ref, lifts, err) {
   return t.template;
 }
 
-function parseAccessori(ws, blockCount, err) {
+/**
+ * The accessori sheet: one row per exercise, sets per block in the "Serie B…" columns.
+ * Rep and Intensità are templates (text, a load formula or {Squat .57} placeholders); Istruzioni is plain text.
+ */
+function parseAccessori(ws, blockCount, lifts, err) {
   if (!ws) return null; // parser.js only calls us when the sheet exists
   checkMerges(ws, "accessori", err);
   let ok = true;
   ACC_HEADERS.forEach((h, i) => {
     const got = text(ws, 1, i + 1);
-    if (got !== h) { err(`accessori!${col(i + 1)}1`, `intestazione attesa "${h}", trovato "${got}"`); ok = false; }
+    if (!sameHeader(got, h)) { err(`accessori!${col(i + 1)}1`, `intestazione attesa "${h}", trovato "${got}"`); ok = false; }
   });
   let n = 0;
-  while (text(ws, 1, 7 + n).startsWith("Serie B")) n++;
+  while (text(ws, 1, 7 + n).toLowerCase().startsWith("serie b")) n++;
   if (!n) { err("accessori!G1", 'servono le colonne "Serie B1", "Serie B2", … (una per blocco)'); ok = false; }
   else if (blockCount != null && n !== blockCount) {
     err(`accessori!${col(7 + n - 1)}1`, `${n} colonne "Serie B…" ma ${blockCount} blocchi in overall: devono essere uguali`);
@@ -137,8 +130,8 @@ function parseAccessori(ws, blockCount, err) {
 
   const out = [];
   for (let r = 2; text(ws, r, 1); r++) {
-    const day = text(ws, r, 1);
-    if (!/^[A-Z]$/.test(day)) { err(`accessori!A${r}`, `giorno "${day}" non valido: serve una sola lettera maiuscola`); continue; }
+    const day = text(ws, r, 1).toUpperCase();
+    if (!/^[A-Z]$/.test(day)) { err(`accessori!A${r}`, `giorno "${text(ws, r, 1)}" non valido: serve una sola lettera`); continue; }
     if (!text(ws, r, 2)) err(`accessori!B${r}`, "esercizio senza nome");
     const sets = [];
     for (let k = 0; k < n; k++) {
@@ -148,11 +141,12 @@ function parseAccessori(ws, blockCount, err) {
       if (!(Number.isInteger(num) && num >= 0)) err(`accessori!${col(c)}${r}`, `serie "${v ?? ""}" non valide: serve un intero ≥ 0`);
       sets.push(num);
     }
-    const intensity = text(ws, r, 6);
+    const reps = parsePrescription(getCell(ws, r, 5), `accessori!E${r}`, lifts, err);
+    const intensity = parsePrescription(getCell(ws, r, 6), `accessori!F${r}`, lifts, err);
     out.push({
-      day, name: text(ws, r, 2), instructions: text(ws, r, 3), group: text(ws, r, 4), reps: text(ws, r, 5), intensity, sets,
+      day, name: text(ws, r, 2), instructions: text(ws, r, 3), group: text(ws, r, 4), reps, intensity, sets,
       // Counted for volume but not listed with the accessories (e.g. pull-ups already in overall).
-      volumeOnly: intensity === "vedi overall",
+      volumeOnly: text(ws, r, 6).toLowerCase() === "vedi overall",
     });
   }
   return out;

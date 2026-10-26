@@ -6,10 +6,13 @@
 import * as XLSX from "xlsx";
 import { parsePL28 } from "./parse-pl28.js";
 import { parseCoach } from "./parse-coach.js";
-import { cellText, getCell } from "./parse-common.js";
+import { cellText, getCell, findSheet, duplicateSheets } from "./parse-common.js";
 
 export { parseFormula } from "./parse-common.js";
-export const FORMAT_VERSION = 1;
+// 1: files without a meta sheet. 2 (2026-10-26): the `overall` layout shared by both formats; what the app writes.
+// The parser reads both: version 2 only marks files an older app couldn't read.
+export const FORMAT_VERSION = 2;
+const SHEETS = ["Massimali", "overall", "accessori", "note", "meta"];
 
 /** Parses an .xlsx file (ArrayBuffer or Uint8Array). Returns {ok, model, errors, warnings}. */
 export function parseXlsx(bytes) {
@@ -30,16 +33,20 @@ export function parseWorkbook(wb) {
   const err = (ref, msg) => { if (!errors.some((e) => e.ref === ref)) errors.push({ ref, msg }); };
 
   // Format version: no `meta` sheet means format 1 (VERSIONS.md → Foundations).
-  const meta = wb.Sheets.meta;
+  const meta = findSheet(wb, "meta");
   const v = meta && getCell(meta, 1, 2)?.v;
-  if (meta && cellText(getCell(meta, 1, 1)) === "formatVersion" && typeof v === "number" && v > FORMAT_VERSION) {
+  if (meta && cellText(getCell(meta, 1, 1)).toLowerCase() === "formatversion" && typeof v === "number" && v > FORMAT_VERSION) {
     return fail([{ ref: "meta!B1", msg: `formato ${v} non supportato da questa versione dell'app (massimo ${FORMAT_VERSION}): aggiorna l'app` }], warnings);
   }
+
+  // Sheet names ignore capitals, so "note" and "Note" together would be ambiguous.
+  for (const names of duplicateSheets(wb, SHEETS)) for (const s of names) err(s, `fogli con lo stesso nome (${names.join(", ")}): ne serve uno solo`);
+  if (errors.length) return fail(errors, warnings);
 
   // Which format? `accessori` wins: PL28.xlsx also carries an athlete's `training log` sheet, which that format ignores.
   const logs = wb.SheetNames.filter((s) => s.trim().toLowerCase().startsWith("training log"));
   let model = null;
-  if (wb.Sheets.accessori) {
+  if (findSheet(wb, "accessori")) {
     model = parsePL28(wb, err);
   } else if (logs.length > 1) {
     for (const s of logs) err(s, `c'è più di un foglio "training log…" (${logs.join(", ")}): ne serve uno solo`);
